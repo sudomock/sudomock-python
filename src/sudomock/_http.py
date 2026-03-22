@@ -12,7 +12,7 @@ Provides :class:`SyncTransport` and :class:`AsyncTransport` that wrap
 from __future__ import annotations
 
 import importlib.metadata
-from typing import Any
+from typing import Any, Optional
 
 import httpx
 from tenacity import (
@@ -91,7 +91,7 @@ def _raise_for_status(response: httpx.Response) -> None:
         raise ValidationError(detail, status_code=status, body=body)
 
     if status == 429:
-        retry_after: float | None = None
+        retry_after: Optional[float] = None
         if isinstance(body, dict):
             error_obj = body.get("error")
             if isinstance(error_obj, dict):
@@ -143,9 +143,9 @@ class SyncTransport:
         method: str,
         path: str,
         *,
-        params: dict[str, Any] | None = None,
-        json: dict[str, Any] | None = None,
-        timeout: float | None = None,
+        params: Optional[dict[str, Any]] = None,
+        json: Optional[dict[str, Any]] = None,
+        timeout: Optional[float] = None,
     ) -> httpx.Response:
         """Send an HTTP request with automatic retry on transient errors.
 
@@ -216,9 +216,9 @@ class AsyncTransport:
         method: str,
         path: str,
         *,
-        params: dict[str, Any] | None = None,
-        json: dict[str, Any] | None = None,
-        timeout: float | None = None,
+        params: Optional[dict[str, Any]] = None,
+        json: Optional[dict[str, Any]] = None,
+        timeout: Optional[float] = None,
     ) -> httpx.Response:
         """Send an async HTTP request with automatic retry on transient errors."""
         effective_timeout = timeout or self._timeout

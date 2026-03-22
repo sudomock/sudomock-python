@@ -78,6 +78,8 @@ select = [
 ]
 ignore = [
     "SIM117",  # nested with -- parenthesized form requires Python 3.10+
+    "UP007",   # Use X | Y -- requires Python 3.10+ at runtime for non-annotation contexts
+    "UP045",   # Use X | None -- requires Python 3.10+ at runtime for non-annotation contexts
 ]
 
 [tool.mypy]

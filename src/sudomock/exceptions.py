@@ -16,7 +16,7 @@ Hierarchy::
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Optional
 
 
 class SudoMockError(Exception):
@@ -32,8 +32,8 @@ class SudoMockError(Exception):
         self,
         message: str,
         *,
-        status_code: int | None = None,
-        body: Any | None = None,
+        status_code: Optional[int] = None,
+        body: Optional[Any] = None,
     ) -> None:
         super().__init__(message)
         self.message = message
@@ -60,9 +60,9 @@ class InsufficientCreditsError(SudoMockError):
         self,
         message: str,
         *,
-        status_code: int | None = None,
-        body: Any | None = None,
-        credits_reset_at: str | None = None,
+        status_code: Optional[int] = None,
+        body: Optional[Any] = None,
+        credits_reset_at: Optional[str] = None,
     ) -> None:
         super().__init__(message, status_code=status_code, body=body)
         self.credits_reset_at = credits_reset_at
@@ -87,9 +87,9 @@ class RateLimitError(SudoMockError):
         self,
         message: str,
         *,
-        status_code: int | None = None,
-        body: Any | None = None,
-        retry_after: float | None = None,
+        status_code: Optional[int] = None,
+        body: Optional[Any] = None,
+        retry_after: Optional[float] = None,
     ) -> None:
         super().__init__(message, status_code=status_code, body=body)
         self.retry_after = retry_after

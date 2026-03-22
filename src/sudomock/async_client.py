@@ -16,7 +16,7 @@ Usage::
 from __future__ import annotations
 
 import os
-from typing import Any
+from typing import Any, Optional
 
 from ._http import (
     DEFAULT_BASE_URL,
@@ -38,9 +38,9 @@ class _AsyncMockupsResource:
     async def list(
         self,
         *,
-        limit: int | None = None,
-        offset: int | None = None,
-        search: str | None = None,
+        limit: Optional[int] = None,
+        offset: Optional[int] = None,
+        search: Optional[str] = None,
     ) -> MockupList:
         """List mockup templates with optional pagination.
 
@@ -99,8 +99,8 @@ class _AsyncRendersResource:
         *,
         mockup_uuid: str,
         smart_objects: list[dict[str, Any]],
-        export_options: dict[str, Any] | None = None,
-        export_label: str | None = None,
+        export_options: Optional[dict[str, Any]] = None,
+        export_label: Optional[str] = None,
     ) -> Render:
         """Create a new render from a mockup template.
 
@@ -146,15 +146,15 @@ class _AsyncAIResource:
         self,
         *,
         source_url: str,
-        artwork_url: str | None = None,
-        product_type: str | None = None,
-        segment_index: int | None = None,
-        print_area_x: int | None = None,
-        print_area_y: int | None = None,
-        color: str | None = None,
-        adjustments: dict[str, Any] | None = None,
-        placement: dict[str, Any] | None = None,
-        export_options: dict[str, Any] | None = None,
+        artwork_url: Optional[str] = None,
+        product_type: Optional[str] = None,
+        segment_index: Optional[int] = None,
+        print_area_x: Optional[int] = None,
+        print_area_y: Optional[int] = None,
+        color: Optional[str] = None,
+        adjustments: Optional[dict[str, Any]] = None,
+        placement: Optional[dict[str, Any]] = None,
+        export_options: Optional[dict[str, Any]] = None,
     ) -> AIRender:
         """Create an AI-powered render without a PSD template.
 
@@ -241,7 +241,7 @@ class AsyncSudoMock:
     def __init__(
         self,
         *,
-        api_key: str | None = None,
+        api_key: Optional[str] = None,
         base_url: str = DEFAULT_BASE_URL,
         timeout: float = DEFAULT_TIMEOUT,
         render_timeout: float = DEFAULT_RENDER_TIMEOUT,
