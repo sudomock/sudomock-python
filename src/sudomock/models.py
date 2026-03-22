@@ -7,7 +7,7 @@ added to the API do not break existing SDK versions.
 from __future__ import annotations
 
 from datetime import datetime  # noqa: TCH003 - Pydantic needs this at runtime
-from typing import Any
+from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -32,7 +32,7 @@ class Account(_Base):
 
     uuid: str
     email: str
-    name: str | None = None
+    name: Optional[str] = None
     created_at: datetime
 
 
@@ -41,7 +41,7 @@ class Subscription(_Base):
 
     plan: str
     status: str
-    current_period_end: datetime | None = None
+    current_period_end: Optional[datetime] = None
     cancel_at_period_end: bool = False
 
 
@@ -60,7 +60,7 @@ class ApiKeyInfo(_Base):
 
     name: str
     created_at: datetime
-    last_used_at: datetime | None = None
+    last_used_at: Optional[datetime] = None
     total_requests: int
 
 
@@ -98,9 +98,9 @@ class SmartObject(_Base):
     """A single smart-object layer within a mockup."""
 
     uuid: str
-    name: str | None = None
-    size: Size | None = None
-    position: Position | None = None
+    name: Optional[str] = None
+    size: Optional[Size] = None
+    position: Optional[Position] = None
     # Forward-compatible: extra fields silently accepted
 
 
@@ -110,10 +110,10 @@ class Mockup(_Base):
     uuid: str
     name: str
     smart_objects: list[SmartObject] = Field(default_factory=list)
-    width: int | None = None
-    height: int | None = None
-    thumbnail_url: str | None = None
-    created_at: datetime | None = None
+    width: Optional[int] = None
+    height: Optional[int] = None
+    thumbnail_url: Optional[str] = None
+    created_at: Optional[datetime] = None
 
 
 class MockupList(_Base):
@@ -183,4 +183,4 @@ class ApiResponse(_Base):
     """Generic ``{success, data}`` wrapper returned by all endpoints."""
 
     success: bool
-    data: dict[str, Any] | None = None
+    data: Optional[dict[str, Any]] = None
