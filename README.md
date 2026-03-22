@@ -209,8 +209,17 @@ smart_objects = [{
 
 MIT -- see [LICENSE](LICENSE).
 
+## MCP Server
+
+SudoMock also offers an official [Model Context Protocol](https://modelcontextprotocol.io) (MCP) server, enabling AI assistants like Claude, Cursor, and VS Code Copilot to generate mockups directly.
+
+- **npm package:** [@sudomock/mcp](https://www.npmjs.com/package/@sudomock/mcp)
+- **Remote server:** `mcp.sudomock.com` (HTTP transport, no Node.js required)
+- **Documentation:** [sudomock.com/docs/mcp](https://sudomock.com/docs/mcp)
+
 ## Links
 
 - [SudoMock Website](https://sudomock.com)
 - [API Documentation](https://docs.sudomock.com)
 - [Dashboard](https://app.sudomock.com)
+- [MCP Server](https://github.com/sudomock/sudomock-mcp-server)
