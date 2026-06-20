@@ -154,7 +154,8 @@ class TestAsyncWebhooks:
         assert result.secret == "whsec_testsecret123"
 
     async def test_rotate_and_replay(self, mock_api: respx.MockRouter) -> None:
-        rotate_body = {"success": True, "data": {"secret": "whsec_new"}}
+        # BARE endpoint object carrying the unmasked secret (no envelope).
+        rotate_body = {"secret": "whsec_new"}
         mock_api.post("/api/v1/webhook-endpoints/wh-1/rotate-secret").mock(
             return_value=httpx.Response(200, json=rotate_body)
         )
