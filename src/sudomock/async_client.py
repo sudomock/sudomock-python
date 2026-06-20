@@ -275,7 +275,7 @@ class _AsyncJobsResource:
             if time.monotonic() >= deadline:
                 raise TimeoutError(
                     f"Job {render_uuid} did not finish within {timeout}s "
-                    f"(last state: {job.state!r})"
+                    f"(last status: {job.status!r})"
                 )
             await asyncio.sleep(poll_interval)
 
@@ -346,7 +346,8 @@ class _AsyncWebhookEndpointsResource:
         enabled: bool = True,
     ) -> WebhookEndpoint:
         """Register a new webhook endpoint."""
-        body: dict[str, Any] = {"url": url, "events": events, "enabled": enabled}
+        # API field is `event_types` (empty list = subscribe to all events).
+        body: dict[str, Any] = {"url": url, "event_types": events, "enabled": enabled}
         resp = await self._transport.request(
             "POST", "/api/v1/webhook-endpoints", json=body
         )
@@ -374,7 +375,7 @@ class _AsyncWebhookEndpointsResource:
         if url is not None:
             body["url"] = url
         if events is not None:
-            body["events"] = events
+            body["event_types"] = events  # API field name
         if enabled is not None:
             body["enabled"] = enabled
         resp = await self._transport.request(

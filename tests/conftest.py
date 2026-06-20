@@ -121,32 +121,56 @@ MOCK_JOB_ACCEPTED_RESPONSE = {
 
 MOCK_JOB_QUEUED_RESPONSE = {
     "success": True,
-    "data": {"state": "queued"},
+    "data": {"render_uuid": "job-uuid-abc123", "kind": "render", "status": "queued"},
 }
 
 MOCK_JOB_RUNNING_RESPONSE = {
     "success": True,
-    "data": {"state": "running"},
+    "data": {"render_uuid": "job-uuid-abc123", "kind": "render", "status": "running"},
 }
 
 MOCK_JOB_SUCCEEDED_RESPONSE = {
     "success": True,
     "data": {
-        "state": "succeeded",
-        "result_url": "https://cdn.sudomock.com/renders/job-uuid-abc123/render.webp",
-        "mockup_uuid": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
-        "cost": 0.0035,
-        "credits": 1,
+        "render_uuid": "job-uuid-abc123",
+        "kind": "render",
+        "status": "succeeded",
         "model": None,
+        "result_url": "https://cdn.sudomock.com/renders/job-uuid-abc123/render.webp",
+        "mockup_uuid": None,
         "error": None,
-        "payg": False,
+        "credits_charged": 1,
+        "payg": None,
+        "created_at": "2026-06-21T10:00:00Z",
+        "updated_at": "2026-06-21T10:00:05Z",
+    },
+}
+
+# A PAYG job: jobs.credits is 0 on the BE, the real cost is surfaced via the
+# nested payg object (credits_charged == billable count, NOT 0).
+MOCK_JOB_PAYG_SUCCEEDED_RESPONSE = {
+    "success": True,
+    "data": {
+        "render_uuid": "payg-job-001",
+        "kind": "render",
+        "status": "succeeded",
+        "model": None,
+        "result_url": "https://cdn.sudomock.com/renders/payg-job-001/render.webp",
+        "mockup_uuid": None,
+        "error": None,
+        "credits_charged": 2,
+        "payg": {"credits": 2, "unit_price": 0.0035, "cost": 0.007},
+        "created_at": "2026-06-21T10:00:00Z",
+        "updated_at": "2026-06-21T10:00:05Z",
     },
 }
 
 MOCK_JOB_FAILED_RESPONSE = {
     "success": True,
     "data": {
-        "state": "failed",
+        "render_uuid": "job-uuid-abc123",
+        "kind": "render",
+        "status": "failed",
         "result_url": None,
         "error": "render engine error",
     },
@@ -177,14 +201,18 @@ MOCK_PSD_UPLOAD_ASYNC_RESPONSE = {
     },
 }
 
-# Webhook endpoints
+# Webhook endpoints. Field names mirror the API's WebhookEndpointResponse:
+# id (not uuid), event_types (not events), description, updated_at. The secret
+# is full only on create / rotate; masked elsewhere.
 MOCK_WEBHOOK_ENDPOINT = {
-    "uuid": "wh-uuid-1",
+    "id": "wh-uuid-1",
     "url": "https://example.com/webhooks/sudomock",
-    "events": ["render.succeeded", "render.failed"],
-    "enabled": True,
     "secret": "whsec_testsecret123",
+    "description": None,
+    "event_types": ["render.succeeded", "render.failed"],
+    "enabled": True,
     "created_at": "2026-06-21T10:00:00Z",
+    "updated_at": None,
 }
 
 MOCK_WEBHOOK_CREATE_RESPONSE = {"success": True, "data": MOCK_WEBHOOK_ENDPOINT}
@@ -196,21 +224,29 @@ MOCK_WEBHOOK_LIST_RESPONSE = {
 
 MOCK_WEBHOOK_GET_RESPONSE = {"success": True, "data": MOCK_WEBHOOK_ENDPOINT}
 
+# Rotate returns the full endpoint with the unmasked secret.
 MOCK_WEBHOOK_ROTATE_RESPONSE = {
     "success": True,
-    "data": {"secret": "whsec_rotated456"},
+    "data": {**MOCK_WEBHOOK_ENDPOINT, "secret": "whsec_rotated456"},
 }
 
+# Delivery rows mirror WebhookDeliveryResponse: id, endpoint_id, job_uuid,
+# event_type, status, http_status (not response_status), attempt, last_error.
 MOCK_WEBHOOK_DELIVERIES_RESPONSE = {
     "success": True,
     "data": {
         "deliveries": [
             {
-                "uuid": "dlv-1",
+                "id": "dlv-1",
+                "endpoint_id": "wh-uuid-1",
+                "job_uuid": "job-uuid-abc123",
                 "event_type": "render.succeeded",
                 "status": "failed",
-                "response_status": 500,
+                "http_status": 500,
+                "attempt": 2,
+                "last_error": "non-2xx response: 500",
                 "created_at": "2026-06-21T10:05:00Z",
+                "updated_at": "2026-06-21T10:06:00Z",
             }
         ]
     },
