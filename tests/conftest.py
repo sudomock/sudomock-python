@@ -108,6 +108,114 @@ MOCK_ME_RESPONSE = {
     },
 }
 
+# Async job submission (202)
+MOCK_JOB_ACCEPTED_RESPONSE = {
+    "success": True,
+    "data": {
+        "render_uuid": "job-uuid-abc123",
+        "kind": "render",
+        "status": "queued",
+        "status_url": "/api/v1/jobs/job-uuid-abc123",
+    },
+}
+
+MOCK_JOB_QUEUED_RESPONSE = {
+    "success": True,
+    "data": {"state": "queued"},
+}
+
+MOCK_JOB_RUNNING_RESPONSE = {
+    "success": True,
+    "data": {"state": "running"},
+}
+
+MOCK_JOB_SUCCEEDED_RESPONSE = {
+    "success": True,
+    "data": {
+        "state": "succeeded",
+        "result_url": "https://cdn.sudomock.com/renders/job-uuid-abc123/render.webp",
+        "mockup_uuid": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+        "cost": 0.0035,
+        "credits": 1,
+        "model": None,
+        "error": None,
+        "payg": False,
+    },
+}
+
+MOCK_JOB_FAILED_RESPONSE = {
+    "success": True,
+    "data": {
+        "state": "failed",
+        "result_url": None,
+        "error": "render engine error",
+    },
+}
+
+MOCK_VIDEO_JOB_ACCEPTED_RESPONSE = {
+    "success": True,
+    "data": {
+        "render_uuid": "video-job-xyz789",
+        "kind": "video",
+        "status": "queued",
+        "status_url": "/api/v1/jobs/video-job-xyz789",
+    },
+}
+
+MOCK_PSD_UPLOAD_SYNC_RESPONSE = {
+    "success": True,
+    "data": MOCK_MOCKUP,
+}
+
+MOCK_PSD_UPLOAD_ASYNC_RESPONSE = {
+    "success": True,
+    "data": {
+        "render_uuid": "upload-job-001",
+        "kind": "upload",
+        "status": "queued",
+        "status_url": "/api/v1/jobs/upload-job-001",
+    },
+}
+
+# Webhook endpoints
+MOCK_WEBHOOK_ENDPOINT = {
+    "uuid": "wh-uuid-1",
+    "url": "https://example.com/webhooks/sudomock",
+    "events": ["render.succeeded", "render.failed"],
+    "enabled": True,
+    "secret": "whsec_testsecret123",
+    "created_at": "2026-06-21T10:00:00Z",
+}
+
+MOCK_WEBHOOK_CREATE_RESPONSE = {"success": True, "data": MOCK_WEBHOOK_ENDPOINT}
+
+MOCK_WEBHOOK_LIST_RESPONSE = {
+    "success": True,
+    "data": {"webhook_endpoints": [MOCK_WEBHOOK_ENDPOINT]},
+}
+
+MOCK_WEBHOOK_GET_RESPONSE = {"success": True, "data": MOCK_WEBHOOK_ENDPOINT}
+
+MOCK_WEBHOOK_ROTATE_RESPONSE = {
+    "success": True,
+    "data": {"secret": "whsec_rotated456"},
+}
+
+MOCK_WEBHOOK_DELIVERIES_RESPONSE = {
+    "success": True,
+    "data": {
+        "deliveries": [
+            {
+                "uuid": "dlv-1",
+                "event_type": "render.succeeded",
+                "status": "failed",
+                "response_status": 500,
+                "created_at": "2026-06-21T10:05:00Z",
+            }
+        ]
+    },
+}
+
 # Error responses
 ERROR_401 = {"detail": "Invalid or missing API key", "success": False}
 ERROR_402 = {

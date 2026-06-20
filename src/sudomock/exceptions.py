@@ -12,6 +12,7 @@ Hierarchy::
     +-- ValidationError          (422)
     +-- RateLimitError           (429)
     +-- ServerError              (500+)
+    +-- WebhookVerificationError (local -- signature check)
 """
 
 from __future__ import annotations
@@ -97,3 +98,12 @@ class RateLimitError(SudoMockError):
 
 class ServerError(SudoMockError):
     """Raised when the API returns an internal server error (HTTP 500+)."""
+
+
+class WebhookVerificationError(SudoMockError):
+    """Raised when an inbound webhook signature fails verification.
+
+    This is a local error (no HTTP request is involved): the
+    ``SudoMock-Signature`` header is malformed, the timestamp is outside the
+    allowed replay window, or the HMAC digest does not match.
+    """
