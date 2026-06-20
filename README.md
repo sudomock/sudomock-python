@@ -76,6 +76,102 @@ render = client.ai.render(
 print(render.url)
 ```
 
+## Async Rendering (Server-Side Queue)
+
+Submit long-running renders to the server-side queue and poll for the result.
+This is independent of `AsyncSudoMock` -- `is_async` controls *server* queueing,
+while `AsyncSudoMock` only controls how *your* process performs HTTP I/O. Either
+client can submit async jobs.
+
+```python
+from sudomock import SudoMock
+
+client = SudoMock(api_key="sm_your_api_key")
+
+# Submit -> returns a JobAccepted (HTTP 202), does not block on the render
+job = client.renders.create(
+    mockup_uuid="...",
+    smart_objects=[{"uuid": "...", "asset": {"url": "https://example.com/d.png"}}],
+    is_async=True,
+)
+print(job.render_uuid, job.status_url)
+
+# Poll until terminal (succeeded / failed)
+result = client.jobs.wait(job.render_uuid)        # or client.jobs.get(uuid) once
+if result.succeeded:
+    print(result.url)        # result_url
+else:
+    print("failed:", result.error)
+```
+
+## Video Rendering
+
+Animate a mockup into an AI video. Video renders are always async (return a
+`JobAccepted`). The first video render on a free plan is granted once for the
+account's lifetime. `duration_seconds` must be a value allowed by the chosen
+model (otherwise the API returns `422`).
+
+```python
+job = client.renders.create_video(
+    mockup_uuid="...",
+    smart_objects=[{"uuid": "...", "asset": {"url": "https://example.com/d.png"}}],
+    duration_seconds=5,
+    audio=False,
+    advanced_model="veo-3.1-fast",  # optional; otherwise auto-selected by tier
+)
+video = client.jobs.wait(job.render_uuid)
+print(video.url)
+```
+
+## PSD Upload
+
+Upload a PSD by URL and parse it into a mockup template. PSD uploads are **free**
+(zero credits) and support `is_async`.
+
+```python
+mockup = client.psd.upload(url="https://example.com/template.psd", name="My PSD")
+print(mockup.uuid)
+
+# Async variant:
+job = client.psd.upload(url="https://example.com/template.psd", is_async=True)
+mockup = client.jobs.wait(job.render_uuid)
+```
+
+## Webhooks
+
+Manage outbound webhook endpoints (authenticated with your `x-api-key`) and
+verify inbound HMAC-signed deliveries.
+
+```python
+# Register an endpoint
+ep = client.webhook_endpoints.create(
+    url="https://your-app.com/webhooks/sudomock",
+    events=["render.succeeded", "render.failed"],
+)
+print(ep.secret)  # store this -- it signs deliveries
+
+# List / update / rotate / test / replay
+client.webhook_endpoints.list()
+client.webhook_endpoints.update(ep.uuid, enabled=False)
+client.webhook_endpoints.rotate_secret(ep.uuid)
+client.webhook_endpoints.test(ep.uuid)
+deliveries = client.webhook_endpoints.deliveries(ep.uuid)
+client.webhook_endpoints.replay_delivery(ep.uuid, deliveries.deliveries[0].uuid)
+```
+
+Verify an inbound delivery in your handler (use the **raw** request body):
+
+```python
+from sudomock import verify_webhook_signature
+from sudomock.exceptions import WebhookVerificationError
+
+# header value of "SudoMock-Signature": "t=<ts>,v1=<hex>"
+try:
+    verify_webhook_signature(secret, signature_header, raw_body)
+except WebhookVerificationError:
+    ...  # reject: malformed / replayed / bad signature
+```
+
 ## Error Handling
 
 ```python
@@ -155,7 +251,21 @@ client = SudoMock(
 
 | Method | Description |
 |--------|-------------|
-| `client.renders.create(mockup_uuid=, smart_objects=, export_options=, export_label=)` | Render a mockup |
+| `client.renders.create(mockup_uuid=, smart_objects=, export_options=, export_label=, is_async=False)` | Render a mockup (sync `Render`, or `JobAccepted` when `is_async=True`) |
+| `client.renders.create_video(mockup_uuid=, smart_objects=, duration_seconds=, audio=False, advanced_model=None, ...)` | AI video render (always async, returns `JobAccepted`) |
+
+### Jobs
+
+| Method | Description |
+|--------|-------------|
+| `client.jobs.get(render_uuid)` | Get async job status (`queued`/`running`/`succeeded`/`failed`) |
+| `client.jobs.wait(render_uuid, poll_interval=2.0, timeout=300.0)` | Poll until the job reaches a terminal state |
+
+### PSD
+
+| Method | Description |
+|--------|-------------|
+| `client.psd.upload(url=, name=None, is_async=False)` | Upload a PSD by URL (free; sync `Mockup` or `JobAccepted`) |
 
 ### AI
 
@@ -168,6 +278,21 @@ client = SudoMock(
 | Method | Description |
 |--------|-------------|
 | `client.account.get()` | Get account info, credits, subscription |
+
+### Webhook Endpoints
+
+| Method | Description |
+|--------|-------------|
+| `client.webhook_endpoints.list()` | List registered endpoints |
+| `client.webhook_endpoints.create(url=, events=, enabled=True)` | Register an endpoint |
+| `client.webhook_endpoints.get(uuid)` | Get an endpoint |
+| `client.webhook_endpoints.update(uuid, url=, events=, enabled=)` | Update an endpoint |
+| `client.webhook_endpoints.delete(uuid)` | Delete an endpoint |
+| `client.webhook_endpoints.rotate_secret(uuid)` | Rotate the signing secret |
+| `client.webhook_endpoints.test(uuid)` | Send a synthetic test delivery |
+| `client.webhook_endpoints.deliveries(uuid)` | List delivery attempts |
+| `client.webhook_endpoints.replay_delivery(uuid, delivery_id)` | Replay a failed delivery |
+| `verify_webhook_signature(secret, signature_header, raw_body)` | Verify an inbound HMAC signature |
 
 ### Export Options
 

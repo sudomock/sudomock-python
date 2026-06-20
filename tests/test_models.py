@@ -9,6 +9,8 @@ from sudomock.models import (
     AccountInfo,
     AIRender,
     ApiKeyInfo,
+    Job,
+    JobAccepted,
     Mockup,
     MockupList,
     PrintFile,
@@ -17,6 +19,9 @@ from sudomock.models import (
     SmartObject,
     Subscription,
     Usage,
+    VideoOptions,
+    WebhookDelivery,
+    WebhookEndpoint,
 )
 
 
@@ -173,3 +178,71 @@ class TestAIRender:
         r = AIRender(print_files=[])
         with pytest.raises(ValueError, match="no print files"):
             _ = r.url
+
+
+class TestJobAccepted:
+    def test_parse(self) -> None:
+        j = JobAccepted(
+            render_uuid="r-1",
+            kind="render",
+            status="queued",
+            status_url="/api/v1/jobs/r-1",
+        )
+        assert j.render_uuid == "r-1"
+        assert j.status_url == "/api/v1/jobs/r-1"
+
+    def test_minimal(self) -> None:
+        j = JobAccepted(render_uuid="r-1")
+        assert j.render_uuid == "r-1"
+        assert j.status is None
+
+
+class TestJob:
+    def test_queued_not_terminal(self) -> None:
+        job = Job(state="queued")
+        assert not job.is_terminal
+        assert not job.succeeded
+        assert not job.failed
+
+    def test_running_not_terminal(self) -> None:
+        assert not Job(state="running").is_terminal
+
+    def test_succeeded(self) -> None:
+        job = Job(state="succeeded", result_url="https://cdn.sudomock.com/r.webp", credits=1)
+        assert job.is_terminal
+        assert job.succeeded
+        assert job.url == "https://cdn.sudomock.com/r.webp"
+
+    def test_failed(self) -> None:
+        job = Job(state="failed", error="boom")
+        assert job.is_terminal
+        assert job.failed
+        assert job.error == "boom"
+
+    def test_url_without_result_raises(self) -> None:
+        job = Job(state="running")
+        with pytest.raises(ValueError, match="no result_url"):
+            _ = job.url
+
+
+class TestVideoOptions:
+    def test_defaults(self) -> None:
+        v = VideoOptions(duration_seconds=5)
+        assert v.duration_seconds == 5
+        assert v.audio is False
+        assert v.advanced_model is None
+
+
+class TestWebhookModels:
+    def test_endpoint(self) -> None:
+        wh = WebhookEndpoint(
+            uuid="wh-1",
+            url="https://x.com/wh",
+            events=["render.succeeded"],
+        )
+        assert wh.enabled is True
+        assert wh.events == ["render.succeeded"]
+
+    def test_delivery(self) -> None:
+        d = WebhookDelivery(uuid="d-1", event_type="render.succeeded", response_status=200)
+        assert d.response_status == 200

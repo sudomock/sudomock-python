@@ -175,6 +175,135 @@ class AIRender(_Base):
 
 
 # ---------------------------------------------------------------------------
+# Async jobs (is_async renders / uploads / video)
+# ---------------------------------------------------------------------------
+
+
+class JobAccepted(_Base):
+    """Acknowledgement returned by a ``202 Accepted`` async submission.
+
+    Returned by ``renders.create(..., is_async=True)``, ``psd.upload(...,
+    is_async=True)`` and ``renders.create_video(...)``. Poll for completion
+    with :meth:`jobs.get` (or :meth:`jobs.wait` / ``wait_for_job``) using
+    :attr:`render_uuid`.
+    """
+
+    render_uuid: str
+    kind: Optional[str] = None
+    status: Optional[str] = None
+    status_url: Optional[str] = None
+
+
+class Job(_Base):
+    """Status of an async job from ``GET /api/v1/jobs/{render_uuid}``.
+
+    The terminal states are ``"succeeded"`` and ``"failed"``; ``"queued"``
+    and ``"running"`` are non-terminal.
+    """
+
+    state: str
+    result_url: Optional[str] = None
+    mockup_uuid: Optional[str] = None
+    cost: Optional[float] = None
+    credits: Optional[int] = None
+    model: Optional[str] = None
+    error: Optional[str] = None
+    payg: Optional[bool] = None
+
+    # Terminal-state helpers ------------------------------------------------
+
+    @property
+    def is_terminal(self) -> bool:
+        """True once the job has reached a terminal state."""
+        return self.state in ("succeeded", "failed")
+
+    @property
+    def succeeded(self) -> bool:
+        """True if the job finished successfully."""
+        return self.state == "succeeded"
+
+    @property
+    def failed(self) -> bool:
+        """True if the job failed."""
+        return self.state == "failed"
+
+    @property
+    def url(self) -> str:
+        """Shortcut: the result URL (only available once succeeded)."""
+        if not self.result_url:
+            raise ValueError(
+                f"Job has no result_url (state={self.state!r}); "
+                "it may not have succeeded yet"
+            )
+        return self.result_url
+
+
+# ---------------------------------------------------------------------------
+# Video render
+# ---------------------------------------------------------------------------
+
+
+class VideoOptions(_Base):
+    """Video generation options for ``renders.create_video``.
+
+    Attributes:
+        duration_seconds: Clip length; must be in the chosen model's allowed
+            set or the API returns ``422``.
+        audio: Whether to generate audio (default off).
+        advanced_model: Optional model override (otherwise auto-selected by
+            tier). When omitted the API picks the default for your plan.
+    """
+
+    duration_seconds: int
+    audio: bool = False
+    advanced_model: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# Webhook endpoints
+# ---------------------------------------------------------------------------
+
+
+class WebhookEndpoint(_Base):
+    """A registered outbound webhook endpoint."""
+
+    uuid: str
+    url: str
+    events: list[str] = Field(default_factory=list)
+    enabled: bool = True
+    secret: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+
+class WebhookEndpointList(_Base):
+    """List of registered webhook endpoints."""
+
+    webhook_endpoints: list[WebhookEndpoint] = Field(default_factory=list)
+
+
+class WebhookSecret(_Base):
+    """Result of rotating a webhook signing secret."""
+
+    secret: str
+
+
+class WebhookDelivery(_Base):
+    """A single delivery attempt for a webhook endpoint."""
+
+    uuid: str
+    event_type: Optional[str] = None
+    status: Optional[str] = None
+    response_status: Optional[int] = None
+    created_at: Optional[datetime] = None
+
+
+class WebhookDeliveryList(_Base):
+    """List of delivery attempts for a webhook endpoint."""
+
+    deliveries: list[WebhookDelivery] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
 # Generic API envelope
 # ---------------------------------------------------------------------------
 
