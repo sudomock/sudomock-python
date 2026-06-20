@@ -152,24 +152,26 @@ print(ep.secret)  # store this -- it signs deliveries
 
 # List / update / rotate / test / replay
 client.webhook_endpoints.list()
-client.webhook_endpoints.update(ep.uuid, enabled=False)
-client.webhook_endpoints.rotate_secret(ep.uuid)
-client.webhook_endpoints.test(ep.uuid)
-deliveries = client.webhook_endpoints.deliveries(ep.uuid)
-client.webhook_endpoints.replay_delivery(ep.uuid, deliveries.deliveries[0].uuid)
+client.webhook_endpoints.update(ep.id, enabled=False)
+client.webhook_endpoints.rotate_secret(ep.id)
+client.webhook_endpoints.test(ep.id)
+deliveries = client.webhook_endpoints.deliveries(ep.id)
+client.webhook_endpoints.replay_delivery(ep.id, deliveries.deliveries[0].id)
 ```
 
-Verify an inbound delivery in your handler (use the **raw** request body):
+Verify an inbound delivery in your handler (use the **raw** request body).
+SudoMock sends the signature and timestamp in two separate headers:
 
 ```python
 from sudomock import verify_webhook_signature
 from sudomock.exceptions import WebhookVerificationError
 
-# header value of "SudoMock-Signature": "t=<ts>,v1=<hex>"
+signature = request.headers["X-SudoMock-Signature"]  # hex HMAC-SHA256 digest
+timestamp = request.headers["X-SudoMock-Timestamp"]  # unix timestamp
 try:
-    verify_webhook_signature(secret, signature_header, raw_body)
+    verify_webhook_signature(secret, signature, timestamp, raw_body)
 except WebhookVerificationError:
-    ...  # reject: malformed / replayed / bad signature
+    ...  # reject: missing header / replayed / bad signature
 ```
 
 ## Error Handling
@@ -292,7 +294,7 @@ client = SudoMock(
 | `client.webhook_endpoints.test(uuid)` | Send a synthetic test delivery |
 | `client.webhook_endpoints.deliveries(uuid)` | List delivery attempts |
 | `client.webhook_endpoints.replay_delivery(uuid, delivery_id)` | Replay a failed delivery |
-| `verify_webhook_signature(secret, signature_header, raw_body)` | Verify an inbound HMAC signature |
+| `verify_webhook_signature(secret, signature, timestamp, raw_body)` | Verify an inbound HMAC signature (split headers) |
 
 ### Export Options
 

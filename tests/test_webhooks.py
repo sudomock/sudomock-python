@@ -57,7 +57,7 @@ class TestWebhookEndpointsCRUD:
         assert isinstance(result, WebhookEndpoint)
         assert result.secret == "whsec_testsecret123"
         body = json.loads(route.calls.last.request.content)
-        assert body["events"] == ["render.succeeded", "render.failed"]
+        assert body["event_types"] == ["render.succeeded", "render.failed"]
         assert body["enabled"] is True
 
     def test_create_uses_api_key(self, mock_api: respx.MockRouter) -> None:
@@ -74,7 +74,7 @@ class TestWebhookEndpointsCRUD:
         )
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
             result = client.webhook_endpoints.get("wh-uuid-1")
-        assert result.uuid == "wh-uuid-1"
+        assert result.id == "wh-uuid-1"
 
     def test_update(self, mock_api: respx.MockRouter) -> None:
         route = mock_api.patch("/api/v1/webhook-endpoints/wh-uuid-1").mock(
@@ -115,7 +115,8 @@ class TestWebhookEndpointsCRUD:
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
             result = client.webhook_endpoints.deliveries("wh-uuid-1")
         assert len(result.deliveries) == 1
-        assert result.deliveries[0].response_status == 500
+        assert result.deliveries[0].http_status == 500
+        assert result.deliveries[0].id == "dlv-1"
 
     def test_replay_delivery(self, mock_api: respx.MockRouter) -> None:
         route = mock_api.post(
@@ -134,67 +135,74 @@ _SECRET = "whsec_topsecret"
 
 
 def _sign(secret: str, timestamp: int, body: bytes) -> str:
+    """Compute the hex HMAC-SHA256 digest of f"{ts}.{body}" (the X-SudoMock-Signature value)."""
     payload = f"{timestamp}.".encode() + body
-    digest = hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
-    return f"t={timestamp},v1={digest}"
+    return hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
 
 
 class TestVerifyWebhookSignature:
     def test_valid_signature(self) -> None:
         body = b'{"event":"render.succeeded"}'
         ts = int(time.time())
-        header = _sign(_SECRET, ts, body)
-        assert verify_webhook_signature(_SECRET, header, body) is True
+        sig = _sign(_SECRET, ts, body)
+        assert verify_webhook_signature(_SECRET, sig, str(ts), body) is True
 
     def test_valid_with_str_body_and_secret(self) -> None:
         body = '{"event":"render.succeeded"}'
         ts = int(time.time())
-        header = _sign(_SECRET, ts, body.encode())
+        sig = _sign(_SECRET, ts, body.encode())
         # str secret + str body should also work
-        assert verify_webhook_signature(_SECRET, header, body) is True
+        assert verify_webhook_signature(_SECRET, sig, str(ts), body) is True
+
+    def test_int_timestamp_accepted(self) -> None:
+        body = b'{"event":"render.succeeded"}'
+        ts = int(time.time())
+        sig = _sign(_SECRET, ts, body)
+        # the timestamp header may be passed as an int too
+        assert verify_webhook_signature(_SECRET, sig, ts, body) is True
 
     def test_tampered_body_fails(self) -> None:
         body = b'{"event":"render.succeeded"}'
         ts = int(time.time())
-        header = _sign(_SECRET, ts, body)
+        sig = _sign(_SECRET, ts, body)
         with pytest.raises(WebhookVerificationError, match="mismatch"):
-            verify_webhook_signature(_SECRET, header, b'{"event":"tampered"}')
+            verify_webhook_signature(_SECRET, sig, str(ts), b'{"event":"tampered"}')
 
     def test_wrong_secret_fails(self) -> None:
         body = b"payload"
         ts = int(time.time())
-        header = _sign(_SECRET, ts, body)
+        sig = _sign(_SECRET, ts, body)
         with pytest.raises(WebhookVerificationError, match="mismatch"):
-            verify_webhook_signature("whsec_wrong", header, body)
+            verify_webhook_signature("whsec_wrong", sig, str(ts), body)
 
-    def test_malformed_header(self) -> None:
-        with pytest.raises(WebhookVerificationError, match="Malformed"):
-            verify_webhook_signature(_SECRET, "not-a-signature", b"x")
+    def test_missing_signature_header(self) -> None:
+        with pytest.raises(WebhookVerificationError, match="Missing X-SudoMock-Signature"):
+            verify_webhook_signature(_SECRET, "", "12345", b"x")
 
-    def test_missing_v1(self) -> None:
-        with pytest.raises(WebhookVerificationError, match="Malformed"):
-            verify_webhook_signature(_SECRET, "t=12345", b"x")
+    def test_missing_timestamp_header(self) -> None:
+        with pytest.raises(WebhookVerificationError, match="Missing X-SudoMock-Timestamp"):
+            verify_webhook_signature(_SECRET, "deadbeef", "", b"x")
 
     def test_non_integer_timestamp(self) -> None:
         with pytest.raises(WebhookVerificationError, match="Invalid timestamp"):
-            verify_webhook_signature(_SECRET, "t=abc,v1=deadbeef", b"x")
+            verify_webhook_signature(_SECRET, "deadbeef", "abc", b"x")
 
     def test_expired_timestamp_rejected(self) -> None:
         body = b"payload"
         old_ts = int(time.time()) - 1000
-        header = _sign(_SECRET, old_ts, body)
+        sig = _sign(_SECRET, old_ts, body)
         with pytest.raises(WebhookVerificationError, match="tolerance"):
-            verify_webhook_signature(_SECRET, header, body)
+            verify_webhook_signature(_SECRET, sig, str(old_ts), body)
 
     def test_tolerance_zero_disables_replay_check(self) -> None:
         body = b"payload"
         old_ts = int(time.time()) - 100000
-        header = _sign(_SECRET, old_ts, body)
+        sig = _sign(_SECRET, old_ts, body)
         # signature still valid, replay window disabled
-        assert verify_webhook_signature(_SECRET, header, body, tolerance=0) is True
+        assert verify_webhook_signature(_SECRET, sig, str(old_ts), body, tolerance=0) is True
 
     def test_future_timestamp_within_tolerance_ok(self) -> None:
         body = b"payload"
         future_ts = int(time.time()) + 10
-        header = _sign(_SECRET, future_ts, body)
-        assert verify_webhook_signature(_SECRET, header, body) is True
+        sig = _sign(_SECRET, future_ts, body)
+        assert verify_webhook_signature(_SECRET, sig, str(future_ts), body) is True
