@@ -194,45 +194,66 @@ class JobAccepted(_Base):
     status_url: Optional[str] = None
 
 
+class PaygCost(_Base):
+    """Pay-as-you-go cost breakdown for a job (only present on PAYG jobs).
+
+    Mirrors the nested ``payg`` object in ``GET /api/v1/jobs/{render_uuid}``:
+    ``{credits, unit_price, cost}`` where ``cost`` is ``credits * unit_price``
+    in USD (or ``None`` if either input is missing).
+    """
+
+    credits: Optional[int] = None
+    unit_price: Optional[float] = None
+    cost: Optional[float] = None
+
+
 class Job(_Base):
     """Status of an async job from ``GET /api/v1/jobs/{render_uuid}``.
 
     The terminal states are ``"succeeded"`` and ``"failed"``; ``"queued"``
-    and ``"running"`` are non-terminal.
+    and ``"running"`` are non-terminal. The current state value is exposed on
+    :attr:`status` (the API field is ``status``).
     """
 
-    state: str
+    render_uuid: Optional[str] = None
+    kind: Optional[str] = None
+    status: str
+    model: Optional[str] = None
     result_url: Optional[str] = None
     mockup_uuid: Optional[str] = None
-    cost: Optional[float] = None
-    credits: Optional[int] = None
-    model: Optional[str] = None
     error: Optional[str] = None
-    payg: Optional[bool] = None
+    # Real charge for the job. For credit/subscription jobs this is the
+    # deducted credit count; for PAYG it is the billable credit count (NOT the
+    # stored 0). The dollar amount lives in :attr:`payg`.
+    credits_charged: Optional[int] = None
+    # Nested cost breakdown, present only for PAYG jobs (else ``None``).
+    payg: Optional[PaygCost] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     # Terminal-state helpers ------------------------------------------------
 
     @property
     def is_terminal(self) -> bool:
         """True once the job has reached a terminal state."""
-        return self.state in ("succeeded", "failed")
+        return self.status in ("succeeded", "failed")
 
     @property
     def succeeded(self) -> bool:
         """True if the job finished successfully."""
-        return self.state == "succeeded"
+        return self.status == "succeeded"
 
     @property
     def failed(self) -> bool:
         """True if the job failed."""
-        return self.state == "failed"
+        return self.status == "failed"
 
     @property
     def url(self) -> str:
         """Shortcut: the result URL (only available once succeeded)."""
         if not self.result_url:
             raise ValueError(
-                f"Job has no result_url (state={self.state!r}); "
+                f"Job has no result_url (status={self.status!r}); "
                 "it may not have succeeded yet"
             )
         return self.result_url
@@ -265,40 +286,71 @@ class VideoOptions(_Base):
 
 
 class WebhookEndpoint(_Base):
-    """A registered outbound webhook endpoint."""
+    """A registered outbound webhook endpoint.
 
-    uuid: str
+    Mirrors the API's ``WebhookEndpointResponse``: the identifier is ``id``,
+    subscribed events are ``event_types`` (empty = subscribe to all), and the
+    ``secret`` is masked (``whsec_****<last4>``) except on create / rotate
+    where the full value is returned once.
+    """
+
+    id: str
     url: str
-    events: list[str] = Field(default_factory=list)
-    enabled: bool = True
     secret: Optional[str] = None
+    description: Optional[str] = None
+    event_types: list[str] = Field(default_factory=list)
+    enabled: bool = True
     created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
 
 class WebhookEndpointList(_Base):
-    """List of registered webhook endpoints."""
+    """List of registered webhook endpoints.
+
+    The API list endpoint returns a bare JSON array; the client wraps it in
+    this convenience model (``webhook_endpoints``).
+    """
 
     webhook_endpoints: list[WebhookEndpoint] = Field(default_factory=list)
 
 
 class WebhookSecret(_Base):
-    """Result of rotating a webhook signing secret."""
+    """Result of rotating a webhook signing secret.
+
+    The rotate endpoint returns the full endpoint object with the unmasked
+    ``secret``; this convenience model exposes the ``secret`` field directly
+    (extra endpoint fields are accepted via ``extra="allow"``).
+    """
 
     secret: str
 
 
 class WebhookDelivery(_Base):
-    """A single delivery attempt for a webhook endpoint."""
+    """A single delivery-attempt log row.
 
-    uuid: str
+    Mirrors the API's ``WebhookDeliveryResponse``: ``id`` is the row id,
+    ``job_uuid`` is the originating job, the HTTP response code is
+    ``http_status``, and ``attempt`` is the retry counter.
+    """
+
+    id: str
+    endpoint_id: Optional[str] = None
+    job_uuid: Optional[str] = None
     event_type: Optional[str] = None
     status: Optional[str] = None
-    response_status: Optional[int] = None
+    http_status: Optional[int] = None
+    attempt: int = 0
+    last_error: Optional[str] = None
     created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
 
 class WebhookDeliveryList(_Base):
-    """List of delivery attempts for a webhook endpoint."""
+    """List of delivery attempts for a webhook endpoint.
+
+    The API deliveries endpoint returns a bare JSON array; the client wraps it
+    in this convenience model (``deliveries``).
+    """
 
     deliveries: list[WebhookDelivery] = Field(default_factory=list)
 

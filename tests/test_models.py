@@ -199,28 +199,50 @@ class TestJobAccepted:
 
 class TestJob:
     def test_queued_not_terminal(self) -> None:
-        job = Job(state="queued")
+        job = Job(status="queued")
         assert not job.is_terminal
         assert not job.succeeded
         assert not job.failed
 
     def test_running_not_terminal(self) -> None:
-        assert not Job(state="running").is_terminal
+        assert not Job(status="running").is_terminal
 
     def test_succeeded(self) -> None:
-        job = Job(state="succeeded", result_url="https://cdn.sudomock.com/r.webp", credits=1)
+        job = Job(
+            status="succeeded",
+            result_url="https://cdn.sudomock.com/r.webp",
+            credits_charged=1,
+        )
         assert job.is_terminal
         assert job.succeeded
         assert job.url == "https://cdn.sudomock.com/r.webp"
+        assert job.credits_charged == 1
+        assert job.payg is None
+
+    def test_payg_nested_cost(self) -> None:
+        """PAYG jobs surface the real cost in a nested payg object."""
+        job = Job(
+            render_uuid="payg-1",
+            kind="render",
+            status="succeeded",
+            result_url="https://cdn.sudomock.com/r.webp",
+            credits_charged=2,
+            payg={"credits": 2, "unit_price": 0.0035, "cost": 0.007},
+        )
+        assert job.credits_charged == 2
+        assert job.payg is not None
+        assert job.payg.credits == 2
+        assert job.payg.unit_price == 0.0035
+        assert job.payg.cost == 0.007
 
     def test_failed(self) -> None:
-        job = Job(state="failed", error="boom")
+        job = Job(status="failed", error="boom")
         assert job.is_terminal
         assert job.failed
         assert job.error == "boom"
 
     def test_url_without_result_raises(self) -> None:
-        job = Job(state="running")
+        job = Job(status="running")
         with pytest.raises(ValueError, match="no result_url"):
             _ = job.url
 
@@ -236,13 +258,24 @@ class TestVideoOptions:
 class TestWebhookModels:
     def test_endpoint(self) -> None:
         wh = WebhookEndpoint(
-            uuid="wh-1",
+            id="wh-1",
             url="https://x.com/wh",
-            events=["render.succeeded"],
+            event_types=["render.succeeded"],
         )
+        assert wh.id == "wh-1"
         assert wh.enabled is True
-        assert wh.events == ["render.succeeded"]
+        assert wh.event_types == ["render.succeeded"]
 
     def test_delivery(self) -> None:
-        d = WebhookDelivery(uuid="d-1", event_type="render.succeeded", response_status=200)
-        assert d.response_status == 200
+        d = WebhookDelivery(
+            id="d-1",
+            endpoint_id="wh-1",
+            job_uuid="job-1",
+            event_type="render.succeeded",
+            status="delivered",
+            http_status=200,
+            attempt=0,
+        )
+        assert d.id == "d-1"
+        assert d.http_status == 200
+        assert d.attempt == 0

@@ -94,7 +94,7 @@ class TestJobs:
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
             job = client.jobs.get("job-1")
         assert isinstance(job, Job)
-        assert job.state == "queued"
+        assert job.status == "queued"
         assert not job.is_terminal
 
     def test_get_succeeded(self, mock_api: respx.MockRouter) -> None:
@@ -106,7 +106,7 @@ class TestJobs:
         assert job.succeeded
         assert job.is_terminal
         assert "render.webp" in job.url
-        assert job.credits == 1
+        assert job.credits_charged == 1
 
     def test_get_owner_scope_404(self, mock_api: respx.MockRouter) -> None:
         mock_api.get("/api/v1/jobs/not-mine").mock(
