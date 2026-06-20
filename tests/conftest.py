@@ -108,97 +108,84 @@ MOCK_ME_RESPONSE = {
     },
 }
 
-# Async job submission (202)
+# Async job submission (202). The async submit + job-poll endpoints return BARE
+# bodies (no {success, data} envelope) — these fixtures match the real BE.
 MOCK_JOB_ACCEPTED_RESPONSE = {
-    "success": True,
-    "data": {
-        "render_uuid": "job-uuid-abc123",
-        "kind": "render",
-        "status": "queued",
-        "status_url": "/api/v1/jobs/job-uuid-abc123",
-    },
+    "render_uuid": "job-uuid-abc123",
+    "kind": "render",
+    "status": "queued",
+    "status_url": "/api/v1/jobs/job-uuid-abc123",
 }
 
 MOCK_JOB_QUEUED_RESPONSE = {
-    "success": True,
-    "data": {"render_uuid": "job-uuid-abc123", "kind": "render", "status": "queued"},
+    "render_uuid": "job-uuid-abc123",
+    "kind": "render",
+    "status": "queued",
 }
 
 MOCK_JOB_RUNNING_RESPONSE = {
-    "success": True,
-    "data": {"render_uuid": "job-uuid-abc123", "kind": "render", "status": "running"},
+    "render_uuid": "job-uuid-abc123",
+    "kind": "render",
+    "status": "running",
 }
 
 MOCK_JOB_SUCCEEDED_RESPONSE = {
-    "success": True,
-    "data": {
-        "render_uuid": "job-uuid-abc123",
-        "kind": "render",
-        "status": "succeeded",
-        "model": None,
-        "result_url": "https://cdn.sudomock.com/renders/job-uuid-abc123/render.webp",
-        "mockup_uuid": None,
-        "error": None,
-        "credits_charged": 1,
-        "payg": None,
-        "created_at": "2026-06-21T10:00:00Z",
-        "updated_at": "2026-06-21T10:00:05Z",
-    },
+    "render_uuid": "job-uuid-abc123",
+    "kind": "render",
+    "status": "succeeded",
+    "model": None,
+    "result_url": "https://cdn.sudomock.com/renders/job-uuid-abc123/render.webp",
+    "mockup_uuid": None,
+    "error": None,
+    "credits_charged": 1,
+    "payg": None,
+    "created_at": "2026-06-21T10:00:00Z",
+    "updated_at": "2026-06-21T10:00:05Z",
 }
 
 # A PAYG job: jobs.credits is 0 on the BE, the real cost is surfaced via the
 # nested payg object (credits_charged == billable count, NOT 0).
 MOCK_JOB_PAYG_SUCCEEDED_RESPONSE = {
-    "success": True,
-    "data": {
-        "render_uuid": "payg-job-001",
-        "kind": "render",
-        "status": "succeeded",
-        "model": None,
-        "result_url": "https://cdn.sudomock.com/renders/payg-job-001/render.webp",
-        "mockup_uuid": None,
-        "error": None,
-        "credits_charged": 2,
-        "payg": {"credits": 2, "unit_price": 0.0035, "cost": 0.007},
-        "created_at": "2026-06-21T10:00:00Z",
-        "updated_at": "2026-06-21T10:00:05Z",
-    },
+    "render_uuid": "payg-job-001",
+    "kind": "render",
+    "status": "succeeded",
+    "model": None,
+    "result_url": "https://cdn.sudomock.com/renders/payg-job-001/render.webp",
+    "mockup_uuid": None,
+    "error": None,
+    "credits_charged": 2,
+    "payg": {"credits": 2, "unit_price": 0.0035, "cost": 0.007},
+    "created_at": "2026-06-21T10:00:00Z",
+    "updated_at": "2026-06-21T10:00:05Z",
 }
 
 MOCK_JOB_FAILED_RESPONSE = {
-    "success": True,
-    "data": {
-        "render_uuid": "job-uuid-abc123",
-        "kind": "render",
-        "status": "failed",
-        "result_url": None,
-        "error": "render engine error",
-    },
+    "render_uuid": "job-uuid-abc123",
+    "kind": "render",
+    "status": "failed",
+    "result_url": None,
+    "error": "render engine error",
 }
 
 MOCK_VIDEO_JOB_ACCEPTED_RESPONSE = {
-    "success": True,
-    "data": {
-        "render_uuid": "video-job-xyz789",
-        "kind": "video",
-        "status": "queued",
-        "status_url": "/api/v1/jobs/video-job-xyz789",
-    },
+    "render_uuid": "video-job-xyz789",
+    "kind": "video",
+    "status": "queued",
+    "status_url": "/api/v1/jobs/video-job-xyz789",
 }
 
+# Sync PSD upload still uses the {success, data} envelope (that endpoint wraps).
 MOCK_PSD_UPLOAD_SYNC_RESPONSE = {
     "success": True,
     "data": MOCK_MOCKUP,
 }
 
+# Async PSD submit (202) returns a BARE body (no envelope).
 MOCK_PSD_UPLOAD_ASYNC_RESPONSE = {
-    "success": True,
-    "data": {
-        "render_uuid": "upload-job-001",
-        "kind": "upload",
-        "status": "queued",
-        "status_url": "/api/v1/jobs/upload-job-001",
-    },
+    "render_uuid": "upload-job-001",
+    "kind": "upload",
+    "status": "queued",
+    "status_url": "/api/v1/jobs/upload-job-001",
 }
 
 # Webhook endpoints. Field names mirror the API's WebhookEndpointResponse:
@@ -215,42 +202,36 @@ MOCK_WEBHOOK_ENDPOINT = {
     "updated_at": None,
 }
 
-MOCK_WEBHOOK_CREATE_RESPONSE = {"success": True, "data": MOCK_WEBHOOK_ENDPOINT}
+# All webhook-endpoint responses are BARE (no {success, data} envelope):
+# create/get/update/rotate return a bare endpoint object; list/deliveries return
+# bare JSON arrays. These fixtures match the real BE (FastAPI response_model
+# serialization, not the legacy {success, data} wrapper).
+MOCK_WEBHOOK_CREATE_RESPONSE = MOCK_WEBHOOK_ENDPOINT
 
-MOCK_WEBHOOK_LIST_RESPONSE = {
-    "success": True,
-    "data": {"webhook_endpoints": [MOCK_WEBHOOK_ENDPOINT]},
-}
+MOCK_WEBHOOK_LIST_RESPONSE = [MOCK_WEBHOOK_ENDPOINT]
 
-MOCK_WEBHOOK_GET_RESPONSE = {"success": True, "data": MOCK_WEBHOOK_ENDPOINT}
+MOCK_WEBHOOK_GET_RESPONSE = MOCK_WEBHOOK_ENDPOINT
 
 # Rotate returns the full endpoint with the unmasked secret.
-MOCK_WEBHOOK_ROTATE_RESPONSE = {
-    "success": True,
-    "data": {**MOCK_WEBHOOK_ENDPOINT, "secret": "whsec_rotated456"},
-}
+MOCK_WEBHOOK_ROTATE_RESPONSE = {**MOCK_WEBHOOK_ENDPOINT, "secret": "whsec_rotated456"}
 
 # Delivery rows mirror WebhookDeliveryResponse: id, endpoint_id, job_uuid,
 # event_type, status, http_status (not response_status), attempt, last_error.
-MOCK_WEBHOOK_DELIVERIES_RESPONSE = {
-    "success": True,
-    "data": {
-        "deliveries": [
-            {
-                "id": "dlv-1",
-                "endpoint_id": "wh-uuid-1",
-                "job_uuid": "job-uuid-abc123",
-                "event_type": "render.succeeded",
-                "status": "failed",
-                "http_status": 500,
-                "attempt": 2,
-                "last_error": "non-2xx response: 500",
-                "created_at": "2026-06-21T10:05:00Z",
-                "updated_at": "2026-06-21T10:06:00Z",
-            }
-        ]
-    },
-}
+# The deliveries endpoint returns a BARE JSON array.
+MOCK_WEBHOOK_DELIVERIES_RESPONSE = [
+    {
+        "id": "dlv-1",
+        "endpoint_id": "wh-uuid-1",
+        "job_uuid": "job-uuid-abc123",
+        "event_type": "render.succeeded",
+        "status": "failed",
+        "http_status": 500,
+        "attempt": 2,
+        "last_error": "non-2xx response: 500",
+        "created_at": "2026-06-21T10:05:00Z",
+        "updated_at": "2026-06-21T10:06:00Z",
+    }
+]
 
 # Error responses
 ERROR_401 = {"detail": "Invalid or missing API key", "success": False}

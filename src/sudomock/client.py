@@ -163,10 +163,11 @@ class _RendersResource:
             json=body,
             timeout=self._transport._render_timeout,
         )
-        data = resp.json()["data"]
         if is_async or resp.status_code == 202:
-            return JobAccepted.model_validate(data)
-        return Render.model_validate(data)
+            # Async submit (202) returns a BARE body {render_uuid, kind, status,
+            # status_url} — no {success, data} envelope. The sync path still wraps.
+            return JobAccepted.model_validate(resp.json())
+        return Render.model_validate(resp.json()["data"])
 
     def create_video(
         self,
@@ -229,8 +230,9 @@ class _RendersResource:
             json=body,
             timeout=self._transport._render_timeout,
         )
-        data = resp.json()["data"]
-        return JobAccepted.model_validate(data)
+        # Video submit returns a BARE 202 body {render_uuid, kind, status,
+        # status_url, ...} — no {success, data} envelope.
+        return JobAccepted.model_validate(resp.json())
 
 
 class _JobsResource:
@@ -253,8 +255,9 @@ class _JobsResource:
             NotFoundError: If the job does not exist or is not owned by you.
         """
         resp = self._transport.request("GET", f"/api/v1/jobs/{render_uuid}")
-        data = resp.json()["data"]
-        return Job.model_validate(data)
+        # The job-poll endpoint returns a BARE body {render_uuid, status, ...} —
+        # no {success, data} envelope.
+        return Job.model_validate(resp.json())
 
     def wait(
         self,
@@ -333,10 +336,11 @@ class _PsdResource:
             json=body,
             timeout=self._transport._render_timeout,
         )
-        data = resp.json()["data"]
         if is_async or resp.status_code == 202:
-            return JobAccepted.model_validate(data)
-        return Mockup.model_validate(data)
+            # Async submit (202) returns a BARE body {render_uuid, kind, status,
+            # status_url} — no {success, data} envelope. The sync path still wraps.
+            return JobAccepted.model_validate(resp.json())
+        return Mockup.model_validate(resp.json()["data"])
 
 
 class _WebhookEndpointsResource:
@@ -354,8 +358,9 @@ class _WebhookEndpointsResource:
     def list(self) -> WebhookEndpointList:
         """List your registered webhook endpoints."""
         resp = self._transport.request("GET", "/api/v1/webhook-endpoints")
-        data = resp.json()["data"]
-        return WebhookEndpointList.model_validate(data)
+        # The API returns a BARE JSON array of endpoints — no {success, data}
+        # envelope. Wrap it into the convenience list model.
+        return WebhookEndpointList(webhook_endpoints=resp.json())
 
     def create(
         self,
@@ -378,14 +383,14 @@ class _WebhookEndpointsResource:
         # API field is `event_types` (empty list = subscribe to all events).
         body: dict[str, Any] = {"url": url, "event_types": events, "enabled": enabled}
         resp = self._transport.request("POST", "/api/v1/webhook-endpoints", json=body)
-        data = resp.json()["data"]
-        return WebhookEndpoint.model_validate(data)
+        # BARE endpoint object (no {success, data} envelope).
+        return WebhookEndpoint.model_validate(resp.json())
 
     def get(self, uuid: str) -> WebhookEndpoint:
         """Get a single webhook endpoint by UUID."""
         resp = self._transport.request("GET", f"/api/v1/webhook-endpoints/{uuid}")
-        data = resp.json()["data"]
-        return WebhookEndpoint.model_validate(data)
+        # BARE endpoint object (no {success, data} envelope).
+        return WebhookEndpoint.model_validate(resp.json())
 
     def update(
         self,
@@ -406,8 +411,8 @@ class _WebhookEndpointsResource:
         resp = self._transport.request(
             "PATCH", f"/api/v1/webhook-endpoints/{uuid}", json=body
         )
-        data = resp.json()["data"]
-        return WebhookEndpoint.model_validate(data)
+        # BARE endpoint object (no {success, data} envelope).
+        return WebhookEndpoint.model_validate(resp.json())
 
     def delete(self, uuid: str) -> None:
         """Delete a webhook endpoint."""
@@ -422,8 +427,9 @@ class _WebhookEndpointsResource:
         resp = self._transport.request(
             "POST", f"/api/v1/webhook-endpoints/{uuid}/rotate-secret"
         )
-        data = resp.json()["data"]
-        return WebhookSecret.model_validate(data)
+        # BARE endpoint object carrying the unmasked `secret` (no {success, data}
+        # envelope); WebhookSecret picks the secret, extra fields are accepted.
+        return WebhookSecret.model_validate(resp.json())
 
     def test(self, uuid: str) -> None:
         """Send a synthetic test delivery to an endpoint."""
@@ -434,8 +440,9 @@ class _WebhookEndpointsResource:
         resp = self._transport.request(
             "GET", f"/api/v1/webhook-endpoints/{uuid}/deliveries"
         )
-        data = resp.json()["data"]
-        return WebhookDeliveryList.model_validate(data)
+        # The API returns a BARE JSON array of delivery rows — no {success, data}
+        # envelope. Wrap it into the convenience list model.
+        return WebhookDeliveryList(deliveries=resp.json())
 
     def replay_delivery(self, uuid: str, delivery_id: str) -> None:
         """Re-attempt a previously failed delivery.
