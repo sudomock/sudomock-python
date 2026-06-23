@@ -121,6 +121,19 @@ class TestMockup:
         m = Mockup(uuid="m-1", name="Empty")
         assert m.smart_objects == []
 
+    def test_thumbnail_field(self) -> None:
+        # The API returns the main 720px preview under `thumbnail` (upload /
+        # list / get), which is now a typed field.
+        m = Mockup.model_validate(
+            {
+                "uuid": "m-1",
+                "name": "T-Shirt",
+                "thumbnail": "https://cdn.sudomock.com/thumbnails/m-1_720.webp",
+            }
+        )
+        assert m.thumbnail == "https://cdn.sudomock.com/thumbnails/m-1_720.webp"
+        assert m.thumbnail_url is None
+
 
 class TestMockupList:
     def test_pagination(self) -> None:
