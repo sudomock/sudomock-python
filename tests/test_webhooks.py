@@ -58,7 +58,8 @@ class TestWebhookEndpointsCRUD:
         assert result.secret == "whsec_testsecret123"
         body = json.loads(route.calls.last.request.content)
         assert body["event_types"] == ["render.succeeded", "render.failed"]
-        assert body["enabled"] is True
+        # `enabled` is update-only on the BE; create must not send it.
+        assert "enabled" not in body
 
     def test_create_uses_api_key(self, mock_api: respx.MockRouter) -> None:
         route = mock_api.post("/api/v1/webhook-endpoints").mock(

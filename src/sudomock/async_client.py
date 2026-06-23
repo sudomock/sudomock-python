@@ -49,9 +49,13 @@ from .models import (
     AIRender,
     Job,
     JobAccepted,
+    JobList,
     Mockup,
     MockupList,
+    PlanList,
     Render,
+    TwoDMockup,
+    TwoDMockupList,
     WebhookDeliveryList,
     WebhookEndpoint,
     WebhookEndpointList,
@@ -75,14 +79,23 @@ class _AsyncMockupsResource:
         *,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
-        search: Optional[str] = None,
+        name: Optional[str] = None,
+        created_after: Optional[str] = None,
+        created_before: Optional[str] = None,
+        sort: Optional[str] = None,
+        order: Optional[str] = None,
     ) -> MockupList:
-        """List mockup templates with optional pagination.
+        """List mockup templates with optional pagination and filters.
 
         Args:
-            limit: Maximum number of results (default server-side: 20).
+            limit: Maximum number of results (default server-side: 20, max 100).
             offset: Pagination offset.
-            search: Filter mockups by name.
+            name: Case-insensitive substring filter on the mockup name.
+            created_after: ISO8601 lower bound on ``created_at``.
+            created_before: ISO8601 upper bound on ``created_at``.
+            sort: Sort field, one of ``name`` | ``created_at`` | ``updated_at``
+                (default ``created_at``).
+            order: Sort direction, ``asc`` | ``desc`` (default ``desc``).
 
         Returns:
             :class:`MockupList` with ``mockups``, ``total``, ``limit``, ``offset``.
@@ -90,7 +103,15 @@ class _AsyncMockupsResource:
         resp = await self._transport.request(
             "GET",
             "/api/v1/mockups",
-            params={"limit": limit, "offset": offset, "search": search},
+            params={
+                "limit": limit,
+                "offset": offset,
+                "name": name,
+                "created_after": created_after,
+                "created_before": created_before,
+                "sort": sort,
+                "order": order,
+            },
         )
         data = resp.json()["data"]
         return MockupList.model_validate(data)
@@ -108,6 +129,25 @@ class _AsyncMockupsResource:
             NotFoundError: If the mockup does not exist.
         """
         resp = await self._transport.request("GET", f"/api/v1/mockups/{uuid}")
+        data = resp.json()["data"]
+        return Mockup.model_validate(data)
+
+    async def update(self, uuid: str, *, name: str) -> Mockup:
+        """Rename a mockup.
+
+        Args:
+            uuid: Mockup identifier.
+            name: New mockup name (1..255 characters).
+
+        Returns:
+            The updated :class:`Mockup`.
+
+        Raises:
+            NotFoundError: If the mockup does not exist.
+        """
+        resp = await self._transport.request(
+            "PATCH", f"/api/v1/mockups/{uuid}", json={"name": name}
+        )
         data = resp.json()["data"]
         return Mockup.model_validate(data)
 
@@ -182,44 +222,61 @@ class _AsyncRendersResource:
     async def create_video(
         self,
         *,
-        mockup_uuid: str,
-        smart_objects: list[dict[str, Any]],
+        mockup_uuid: Optional[str] = None,
+        smart_objects: Optional[list[dict[str, Any]]] = None,
+        image_url: Optional[str] = None,
         duration_seconds: int,
         audio: bool = False,
+        motion: Optional[str] = None,
         advanced_model: Optional[str] = None,
         export_options: Optional[dict[str, Any]] = None,
         export_label: Optional[str] = None,
+        webhook: Optional[dict[str, Any]] = None,
     ) -> JobAccepted:
         """Create an AI video render (always async, returns HTTP 202).
 
-        The first video render on a free plan is granted once for the lifetime
-        of the account. See :meth:`sudomock.client.SudoMock.renders.create_video`
-        for full parameter docs.
+        Two **mutually exclusive** input modes: render mode (``mockup_uuid`` +
+        ``smart_objects``) or raw-image mode (``image_url``). See
+        :meth:`sudomock.client.SudoMock.renders.create_video` for full
+        parameter docs.
 
         Returns:
             :class:`JobAccepted` with ``render_uuid``; poll with
             :meth:`jobs.get` / :meth:`jobs.wait`.
 
         Raises:
+            ValueError: If neither ``image_url`` nor ``mockup_uuid`` is given.
             InsufficientCreditsError: If credits are exhausted / free video used.
             ValidationError: If ``duration_seconds`` is not allowed for the model.
         """
+        if image_url is None and mockup_uuid is None:
+            raise ValueError(
+                "create_video requires either image_url (raw-image mode) or "
+                "mockup_uuid (render mode)."
+            )
+
         video: dict[str, Any] = {
             "duration_seconds": duration_seconds,
             "audio": audio,
         }
+        if motion is not None:
+            video["motion"] = motion
         if advanced_model is not None:
             video["advanced_model"] = advanced_model
 
-        body: dict[str, Any] = {
-            "mockup_uuid": mockup_uuid,
-            "smart_objects": smart_objects,
-            "video": video,
-        }
+        body: dict[str, Any] = {"video": video}
+        if mockup_uuid is not None:
+            body["mockup_uuid"] = mockup_uuid
+        if smart_objects is not None:
+            body["smart_objects"] = smart_objects
+        if image_url is not None:
+            body["image_url"] = image_url
         if export_options is not None:
             body["export_options"] = export_options
         if export_label is not None:
             body["export_label"] = export_label
+        if webhook is not None:
+            body["webhook"] = webhook
 
         resp = await self._transport.request(
             "POST",
@@ -237,6 +294,40 @@ class _AsyncJobsResource:
 
     def __init__(self, transport: AsyncTransport) -> None:
         self._transport = transport
+
+    async def list(
+        self,
+        *,
+        kind: Optional[str] = None,
+        mockup_uuid: Optional[str] = None,
+        limit: Optional[int] = None,
+        cursor: Optional[str] = None,
+    ) -> JobList:
+        """List your async jobs, newest first (keyset-paginated).
+
+        Args:
+            kind: Filter by job kind, one of ``video`` | ``render`` | ``upload``.
+            mockup_uuid: Filter by source mockup (raw-image videos excluded).
+            limit: Page size, 1..50 (default server-side: 20).
+            cursor: Opaque keyset cursor from a previous page's ``next_cursor``.
+
+        Returns:
+            :class:`JobList` with ``jobs`` and ``next_cursor`` (``None`` when
+            the final page is reached).
+        """
+        resp = await self._transport.request(
+            "GET",
+            "/api/v1/jobs",
+            params={
+                "kind": kind,
+                "mockup_uuid": mockup_uuid,
+                "limit": limit,
+                "cursor": cursor,
+            },
+        )
+        # The list endpoint returns a BARE body {jobs: [...], next_cursor} —
+        # no {success, data} envelope.
+        return JobList.model_validate(resp.json())
 
     async def get(self, render_uuid: str) -> Job:
         """Fetch the current status of an async job.
@@ -307,9 +398,11 @@ class _AsyncPsdResource:
         Returns:
             :class:`Mockup` (synchronous) or :class:`JobAccepted` (async).
         """
-        body: dict[str, Any] = {"url": url}
+        # BE field names are psd_file_url / psd_name (the SDK keeps the friendly
+        # url= / name= kwargs and maps them here).
+        body: dict[str, Any] = {"psd_file_url": url}
         if name is not None:
-            body["name"] = name
+            body["psd_name"] = name
         if is_async:
             body["is_async"] = True
 
@@ -348,16 +441,47 @@ class _AsyncWebhookEndpointsResource:
         *,
         url: str,
         events: _StrList,
-        enabled: bool = True,
+        description: Optional[str] = None,
     ) -> WebhookEndpoint:
-        """Register a new webhook endpoint."""
+        """Register a new webhook endpoint.
+
+        Args:
+            url: HTTPS URL that will receive POSTed events.
+            events: Event types to subscribe to; an empty list subscribes to ALL.
+            description: Optional human-readable label (≤255 chars).
+        """
         # API field is `event_types` (empty list = subscribe to all events).
-        body: dict[str, Any] = {"url": url, "event_types": events, "enabled": enabled}
+        # NOTE: the create endpoint has no `enabled` field (it is update-only).
+        body: dict[str, Any] = {"url": url, "event_types": events}
+        if description is not None:
+            body["description"] = description
         resp = await self._transport.request(
             "POST", "/api/v1/webhook-endpoints", json=body
         )
         # BARE endpoint object (no {success, data} envelope).
         return WebhookEndpoint.model_validate(resp.json())
+
+    async def events(
+        self,
+        *,
+        status: Optional[str] = None,
+        event_type: Optional[str] = None,
+        limit: Optional[int] = None,
+    ) -> WebhookDeliveryList:
+        """List recent deliveries across ALL of your endpoints (Events feed).
+
+        Args:
+            status: Optional delivery-status filter.
+            event_type: Optional event-type filter.
+            limit: Page size, 1..200 (default server-side: 100).
+        """
+        resp = await self._transport.request(
+            "GET",
+            "/api/v1/webhook-endpoints/events",
+            params={"status": status, "event_type": event_type, "limit": limit},
+        )
+        # BARE JSON array of delivery rows (no {success, data} envelope).
+        return WebhookDeliveryList(deliveries=resp.json())
 
     async def get(self, uuid: str) -> WebhookEndpoint:
         """Get a single webhook endpoint by UUID."""
@@ -373,14 +497,17 @@ class _AsyncWebhookEndpointsResource:
         *,
         url: Optional[str] = None,
         events: Optional[_StrList] = None,
+        description: Optional[str] = None,
         enabled: Optional[bool] = None,
     ) -> WebhookEndpoint:
-        """Update a webhook endpoint's URL, events, or enabled state."""
+        """Update a webhook endpoint's URL, events, description, or enabled state."""
         body: dict[str, Any] = {}
         if url is not None:
             body["url"] = url
         if events is not None:
             body["event_types"] = events  # API field name
+        if description is not None:
+            body["description"] = description
         if enabled is not None:
             body["enabled"] = enabled
         resp = await self._transport.request(
@@ -424,9 +551,16 @@ class _AsyncWebhookEndpointsResource:
             f"/api/v1/webhook-endpoints/{uuid}/deliveries/{delivery_id}/replay",
         )
 
+    async def replay_failed(self, uuid: str) -> None:
+        """Re-attempt ALL failed/dead deliveries for an endpoint."""
+        await self._transport.request(
+            "POST",
+            f"/api/v1/webhook-endpoints/{uuid}/deliveries/replay-failed",
+        )
+
 
 class _AsyncAIResource:
-    """Async SudoAI operations."""
+    """Async SudoAI 2D-mockup operations (render, list, get, delete)."""
 
     def __init__(self, transport: AsyncTransport) -> None:
         self._transport = transport
@@ -434,62 +568,86 @@ class _AsyncAIResource:
     async def render(
         self,
         *,
-        source_url: str,
-        artwork_url: Optional[str] = None,
-        product_type: Optional[str] = None,
-        segment_index: Optional[int] = None,
-        print_area_x: Optional[int] = None,
-        print_area_y: Optional[int] = None,
-        color: Optional[str] = None,
-        adjustments: Optional[dict[str, Any]] = None,
-        placement: Optional[dict[str, Any]] = None,
+        mockup_uuid: str,
+        print_areas: list[dict[str, Any]],
         export_options: Optional[dict[str, Any]] = None,
     ) -> AIRender:
-        """Create an AI-powered render without a PSD template.
+        """Render artwork onto an existing 2D mockup (costs 5 credits).
 
         Args:
-            source_url: URL of the source product photo.
-            artwork_url: URL of the artwork/design to apply.
-            product_type: Hint for surface detection.
-            segment_index: Pre-selected segment index (0-based).
-            print_area_x: X coordinate for manual print area selection.
-            print_area_y: Y coordinate for manual print area selection.
-            color: Hex color overlay.
-            adjustments: Artwork adjustment settings.
-            placement: Placement configuration.
-            export_options: Export settings.
+            mockup_uuid: UUID of a previously-created 2D mockup (see
+                :meth:`list` / :meth:`get`).
+            print_areas: One or more print-area configs. Each is a dict with a
+                required ``uuid`` plus ``artwork_url`` and/or ``color`` (hex),
+                and optional ``adjustments`` / ``placement``.
+            export_options: Export settings (``image_format``, ``image_size``,
+                ``quality``, ``dpi``).
 
         Returns:
-            :class:`AIRender` with ``print_files`` and a convenience ``.url`` property.
+            :class:`AIRender` with ``print_files`` and a convenience ``.url``
+            property.
+
+        Raises:
+            InsufficientCreditsError: If fewer than 5 credits remain.
+            NotFoundError: If ``mockup_uuid`` does not exist.
+            ValidationError: If ``print_areas`` is empty or malformed.
         """
-        body: dict[str, Any] = {"source_url": source_url}
-        if artwork_url is not None:
-            body["artwork_url"] = artwork_url
-        if product_type is not None:
-            body["product_type"] = product_type
-        if segment_index is not None:
-            body["segment_index"] = segment_index
-        if print_area_x is not None:
-            body["print_area_x"] = print_area_x
-        if print_area_y is not None:
-            body["print_area_y"] = print_area_y
-        if color is not None:
-            body["color"] = color
-        if adjustments is not None:
-            body["adjustments"] = adjustments
-        if placement is not None:
-            body["placement"] = placement
+        body: dict[str, Any] = {
+            "mockup_uuid": mockup_uuid,
+            "print_areas": print_areas,
+        }
         if export_options is not None:
             body["export_options"] = export_options
 
         resp = await self._transport.request(
             "POST",
-            "/api/v1/sudoai/render",
+            "/api/v1/sudoai/2d-mockup/render",
             json=body,
             timeout=self._transport._render_timeout,
         )
         data = resp.json()["data"]
         return AIRender.model_validate(data)
+
+    async def list(
+        self,
+        *,
+        limit: Optional[int] = None,
+        offset: Optional[int] = None,
+    ) -> TwoDMockupList:
+        """List your SudoAI 2D mockups (free; zero credits)."""
+        resp = await self._transport.request(
+            "GET",
+            "/api/v1/sudoai/2d-mockups",
+            params={"limit": limit, "offset": offset},
+        )
+        payload = resp.json()
+        return TwoDMockupList(
+            mockups=payload["data"],
+            total=payload["total"],
+            limit=payload["limit"],
+            offset=payload["offset"],
+        )
+
+    async def get(self, mockup_id: str) -> TwoDMockup:
+        """Get a single 2D mockup by id (free; zero credits).
+
+        Raises:
+            NotFoundError: If the 2D mockup does not exist.
+        """
+        resp = await self._transport.request(
+            "GET", f"/api/v1/sudoai/2d-mockup/{mockup_id}"
+        )
+        return TwoDMockup.model_validate(resp.json()["data"])
+
+    async def delete(self, mockup_id: str) -> None:
+        """Delete a 2D mockup (and its masks/quads/storage; free).
+
+        Raises:
+            NotFoundError: If the 2D mockup does not exist.
+        """
+        await self._transport.request(
+            "DELETE", f"/api/v1/sudoai/2d-mockup/{mockup_id}"
+        )
 
 
 class _AsyncAccountResource:
@@ -508,6 +666,23 @@ class _AsyncAccountResource:
         resp = await self._transport.request("GET", "/api/v1/me")
         data = resp.json()["data"]
         return AccountInfo.model_validate(data)
+
+
+class _AsyncPackagesResource:
+    """Async public plan / pricing lookup (no authentication required)."""
+
+    def __init__(self, transport: AsyncTransport) -> None:
+        self._transport = transport
+
+    async def plans(self) -> PlanList:
+        """List all active subscription plans."""
+        resp = await self._transport.request("GET", "/api/v1/packages/plans")
+        return PlanList.model_validate(resp.json())
+
+    async def pricing(self) -> PlanList:
+        """List public pricing (same shape as :meth:`plans`)."""
+        resp = await self._transport.request("GET", "/api/v1/packages/pricing")
+        return PlanList.model_validate(resp.json())
 
 
 class AsyncSudoMock:
@@ -564,6 +739,7 @@ class AsyncSudoMock:
         self.psd = _AsyncPsdResource(self._transport)
         self.ai = _AsyncAIResource(self._transport)
         self.account = _AsyncAccountResource(self._transport)
+        self.packages = _AsyncPackagesResource(self._transport)
         self.webhook_endpoints = _AsyncWebhookEndpointsResource(self._transport)
 
     async def close(self) -> None:
