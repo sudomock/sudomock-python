@@ -25,7 +25,7 @@ Usage::
         job_ack = await client.renders.create(
             mockup_uuid="...", smart_objects=[...], is_async=True,
         )
-        job = await client.jobs.wait(job_ack.render_uuid)
+        job = await client.jobs.wait(job_ack.job_id)
         print(job.result_url)
 """
 
@@ -214,7 +214,7 @@ class _AsyncRendersResource:
             timeout=self._transport._render_timeout,
         )
         if is_async or resp.status_code == 202:
-            # Async submit (202) returns a BARE body {render_uuid, kind, status,
+            # Async submit (202) returns a BARE body {job_id, kind, status,
             # status_url} — no {success, data} envelope. The sync path still wraps.
             return JobAccepted.model_validate(resp.json())
         return Render.model_validate(resp.json()["data"])
@@ -241,7 +241,7 @@ class _AsyncRendersResource:
         parameter docs.
 
         Returns:
-            :class:`JobAccepted` with ``render_uuid``; poll with
+            :class:`JobAccepted` with ``job_id``; poll with
             :meth:`jobs.get` / :meth:`jobs.wait`.
 
         Raises:
@@ -284,7 +284,7 @@ class _AsyncRendersResource:
             json=body,
             timeout=self._transport._render_timeout,
         )
-        # Video submit returns a BARE 202 body {render_uuid, kind, status,
+        # Video submit returns a BARE 202 body {job_id, kind, status,
         # status_url, ...} — no {success, data} envelope.
         return JobAccepted.model_validate(resp.json())
 
@@ -329,20 +329,20 @@ class _AsyncJobsResource:
         # no {success, data} envelope.
         return JobList.model_validate(resp.json())
 
-    async def get(self, render_uuid: str) -> Job:
+    async def get(self, job_id: str) -> Job:
         """Fetch the current status of an async job.
 
         Raises:
             NotFoundError: If the job does not exist or is not owned by you.
         """
-        resp = await self._transport.request("GET", f"/api/v1/jobs/{render_uuid}")
-        # The job-poll endpoint returns a BARE body {render_uuid, status, ...} —
+        resp = await self._transport.request("GET", f"/api/v1/jobs/{job_id}")
+        # The job-poll endpoint returns a BARE body {job_id, status, ...} —
         # no {success, data} envelope.
         return Job.model_validate(resp.json())
 
     async def wait(
         self,
-        render_uuid: str,
+        job_id: str,
         *,
         poll_interval: float = 2.0,
         timeout: float = 300.0,
@@ -350,7 +350,7 @@ class _AsyncJobsResource:
         """Poll :meth:`get` until the job reaches a terminal state.
 
         Args:
-            render_uuid: The ``render_uuid`` returned by an async submission.
+            job_id: The ``job_id`` returned by an async submission.
             poll_interval: Seconds between polls (default 2.0).
             timeout: Maximum total seconds to wait (default 300).
 
@@ -363,12 +363,12 @@ class _AsyncJobsResource:
         """
         deadline = time.monotonic() + timeout
         while True:
-            job = await self.get(render_uuid)
+            job = await self.get(job_id)
             if job.is_terminal:
                 return job
             if time.monotonic() >= deadline:
                 raise TimeoutError(
-                    f"Job {render_uuid} did not finish within {timeout}s "
+                    f"Job {job_id} did not finish within {timeout}s "
                     f"(last status: {job.status!r})"
                 )
             await asyncio.sleep(poll_interval)
@@ -413,7 +413,7 @@ class _AsyncPsdResource:
             timeout=self._transport._render_timeout,
         )
         if is_async or resp.status_code == 202:
-            # Async submit (202) returns a BARE body {render_uuid, kind, status,
+            # Async submit (202) returns a BARE body {job_id, kind, status,
             # status_url} — no {success, data} envelope. The sync path still wraps.
             return JobAccepted.model_validate(resp.json())
         return Mockup.model_validate(resp.json()["data"])

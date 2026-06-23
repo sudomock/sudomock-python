@@ -108,10 +108,10 @@ job = client.renders.create(
     smart_objects=[{"uuid": "...", "asset": {"url": "https://example.com/d.png"}}],
     is_async=True,
 )
-print(job.render_uuid, job.status_url)
+print(job.job_id, job.status_url)
 
 # Poll until terminal (succeeded / failed)
-result = client.jobs.wait(job.render_uuid)        # or client.jobs.get(uuid) once
+result = client.jobs.wait(job.job_id)        # or client.jobs.get(uuid) once
 if result.succeeded:
     print(result.url)        # result_url
 else:
@@ -134,7 +134,7 @@ job = client.renders.create_video(
     motion="ambient",               # optional; "ambient" (default) or "showcase"
     advanced_model="veo-3.1-fast",  # optional; otherwise auto-selected by tier
 )
-video = client.jobs.wait(job.render_uuid)
+video = client.jobs.wait(job.job_id)
 print(video.url)
 
 # Raw-image mode: animate a public image URL directly (no mockup render step)
@@ -155,7 +155,7 @@ print(mockup.uuid)
 
 # Async variant:
 job = client.psd.upload(url="https://example.com/template.psd", is_async=True)
-mockup = client.jobs.wait(job.render_uuid)
+mockup = client.jobs.wait(job.job_id)
 ```
 
 ## Webhooks
@@ -289,8 +289,8 @@ client = SudoMock(
 | Method | Description |
 |--------|-------------|
 | `client.jobs.list(kind=, mockup_uuid=, limit=, cursor=)` | List your async jobs (keyset-paginated, newest first) |
-| `client.jobs.get(render_uuid)` | Get async job status (`queued`/`running`/`succeeded`/`failed`) |
-| `client.jobs.wait(render_uuid, poll_interval=2.0, timeout=300.0)` | Poll until the job reaches a terminal state |
+| `client.jobs.get(job_id)` | Get async job status (`queued`/`running`/`succeeded`/`failed`) |
+| `client.jobs.wait(job_id, poll_interval=2.0, timeout=300.0)` | Poll until the job reaches a terminal state |
 
 ### PSD
 
