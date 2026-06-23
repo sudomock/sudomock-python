@@ -213,6 +213,37 @@ class TestVideo:
                     mockup_uuid="m-1", smart_objects=_SO, duration_seconds=5
                 )
 
+    def test_create_video_motion_included_and_no_export_label(
+        self, mock_api: respx.MockRouter
+    ) -> None:
+        """VideoOptions wiring: motion is forwarded; export_label is gone (not a
+        BE field on the video endpoint)."""
+        route = mock_api.post("/api/v1/renders/video").mock(
+            return_value=httpx.Response(202, json=MOCK_VIDEO_JOB_ACCEPTED_RESPONSE)
+        )
+        with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
+            client.renders.create_video(
+                mockup_uuid="m-1",
+                smart_objects=_SO,
+                duration_seconds=5,
+                motion="showcase",
+            )
+        body = json.loads(route.calls.last.request.content)
+        assert body["video"]["motion"] == "showcase"
+        assert "export_label" not in body
+        assert "export_label" not in body["video"]
+
+    def test_create_video_rejects_export_label_kwarg(self) -> None:
+        """The removed export_label kwarg must no longer be accepted."""
+        with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
+            with pytest.raises(TypeError):
+                client.renders.create_video(
+                    mockup_uuid="m-1",
+                    smart_objects=_SO,
+                    duration_seconds=5,
+                    export_label="nope",  # type: ignore[call-arg]
+                )
+
 
 # ---------------------------------------------------------------------------
 # PSD upload
