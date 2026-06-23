@@ -65,16 +65,99 @@ MOCK_RENDER_RESPONSE = {
     },
 }
 
+# SudoAI 2D render: print_files carry export_path / duration_ms / export_format
+# (NO smart_object_uuid). Matches POST /sudoai/2d-mockup/render.
 MOCK_AI_RENDER_RESPONSE = {
     "success": True,
     "data": {
         "print_files": [
             {
                 "export_path": "https://cdn.sudomock.com/ai-renders/xyz789/render.webp",
-                "smart_object_uuid": "auto-detected",
+                "duration_ms": 412,
+                "export_format": "webp",
             }
         ]
     },
+}
+
+# 2D mockup detail (GET /sudoai/2d-mockup/{id}) — has quads.
+MOCK_2D_MOCKUP = {
+    "mockup_id": "2d-mockup-001",
+    "name": "Flat Tee Front",
+    "status": "ready",
+    "thumbnail_url": "https://cdn.sudomock.com/2d/thumb.png",
+    "watermarked_source_url": "https://cdn.sudomock.com/2d/src.png",
+    "source_width": 2000,
+    "source_height": 2000,
+    "quads": [{"print_area_id": "pa-1", "points": [], "sort_order": 0}],
+    "version": 1,
+    "created_at": "2026-06-21T10:00:00Z",
+    "updated_at": "2026-06-21T10:00:00Z",
+}
+
+MOCK_2D_MOCKUP_GET_RESPONSE = {"data": MOCK_2D_MOCKUP, "success": True}
+
+# 2D mockup list (GET /sudoai/2d-mockups) — data array + sibling pagination.
+MOCK_2D_MOCKUP_LIST_RESPONSE = {
+    "data": [
+        {
+            "mockup_id": "2d-mockup-001",
+            "name": "Flat Tee Front",
+            "status": "ready",
+            "thumbnail_url": "https://cdn.sudomock.com/2d/thumb.png",
+            "watermarked_source_url": "https://cdn.sudomock.com/2d/src.png",
+            "source_width": 2000,
+            "source_height": 2000,
+            "print_areas": [{"print_area_id": "pa-1"}],
+            "version": 1,
+            "created_at": "2026-06-21T10:00:00Z",
+            "updated_at": "2026-06-21T10:00:00Z",
+        }
+    ],
+    "total": 1,
+    "limit": 20,
+    "offset": 0,
+    "success": True,
+}
+
+MOCK_2D_MOCKUP_DELETE_RESPONSE = {"data": {"deleted": True}, "success": True}
+
+# Packages / pricing (GET /packages/plans|pricing) — {plans: [...]}.
+MOCK_PLANS_RESPONSE = {
+    "plans": [
+        {
+            "id": "plan-starter",
+            "name": "Starter",
+            "slug": "starter",
+            "tier": "starter",
+            "description": "For solo sellers",
+            "price_monthly": 24.99,
+            "price_yearly": 224.0,
+            "credits_per_month": 1000,
+            "max_concurrent_requests": 3,
+            "max_concurrent_uploads": 3,
+            "stripe_price_id": "price_123",
+            "stripe_price_id_yearly": "price_456",
+        }
+    ]
+}
+
+# Jobs list (GET /jobs) — bare {jobs: [...], next_cursor}.
+MOCK_JOBS_LIST_RESPONSE = {
+    "jobs": [
+        {
+            "render_uuid": "job-uuid-abc123",
+            "kind": "render",
+            "status": "succeeded",
+            "result_url": "https://cdn.sudomock.com/renders/abc/render.webp",
+            "credits_charged": 1,
+            "duration_seconds": None,
+            "audio": False,
+            "mockup_name": "Black T-Shirt Front",
+            "poster_url": None,
+        }
+    ],
+    "next_cursor": "eyJrIjoiMSJ9",
 }
 
 MOCK_ME_RESPONSE = {

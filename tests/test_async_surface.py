@@ -15,7 +15,7 @@ import pytest
 
 from sudomock import SudoMock
 from sudomock.exceptions import InsufficientCreditsError, NotFoundError, ValidationError
-from sudomock.models import Job, JobAccepted, Mockup, Render
+from sudomock.models import Job, JobAccepted, JobList, Mockup, PlanList, Render
 
 from .conftest import (
     ERROR_402,
@@ -26,10 +26,16 @@ from .conftest import (
     MOCK_JOB_QUEUED_RESPONSE,
     MOCK_JOB_RUNNING_RESPONSE,
     MOCK_JOB_SUCCEEDED_RESPONSE,
+    MOCK_JOBS_LIST_RESPONSE,
+    MOCK_MOCKUP,
+    MOCK_MOCKUP_GET_RESPONSE,
+    MOCK_PLANS_RESPONSE,
     MOCK_PSD_UPLOAD_ASYNC_RESPONSE,
     MOCK_PSD_UPLOAD_SYNC_RESPONSE,
     MOCK_RENDER_RESPONSE,
     MOCK_VIDEO_JOB_ACCEPTED_RESPONSE,
+    MOCK_WEBHOOK_CREATE_RESPONSE,
+    MOCK_WEBHOOK_DELIVERIES_RESPONSE,
     TEST_API_KEY,
     TEST_BASE_URL,
 )
@@ -215,13 +221,19 @@ class TestVideo:
 
 class TestPsdUpload:
     def test_upload_sync_returns_mockup(self, mock_api: respx.MockRouter) -> None:
-        mock_api.post("/api/v1/psd/upload").mock(
+        route = mock_api.post("/api/v1/psd/upload").mock(
             return_value=httpx.Response(200, json=MOCK_PSD_UPLOAD_SYNC_RESPONSE)
         )
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
             result = client.psd.upload(url="https://x.com/file.psd", name="My PSD")
         assert isinstance(result, Mockup)
         assert result.name == "Black T-Shirt Front"
+        # Real BE field names are psd_file_url / psd_name (not url / name).
+        body = json.loads(route.calls.last.request.content)
+        assert body["psd_file_url"] == "https://x.com/file.psd"
+        assert body["psd_name"] == "My PSD"
+        assert "url" not in body
+        assert "name" not in body
 
     def test_upload_async_returns_job(self, mock_api: respx.MockRouter) -> None:
         route = mock_api.post("/api/v1/psd/upload").mock(
@@ -233,3 +245,106 @@ class TestPsdUpload:
         assert result.render_uuid == "upload-job-001"
         body = json.loads(route.calls.last.request.content)
         assert body["is_async"] is True
+        assert body["psd_file_url"] == "https://x.com/file.psd"
+
+
+# ---------------------------------------------------------------------------
+# jobs.list
+# ---------------------------------------------------------------------------
+
+
+class TestJobsList:
+    def test_list_jobs(self, mock_api: respx.MockRouter) -> None:
+        route = mock_api.get("/api/v1/jobs").mock(
+            return_value=httpx.Response(200, json=MOCK_JOBS_LIST_RESPONSE)
+        )
+        with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
+            result = client.jobs.list(kind="render", limit=10)
+        assert isinstance(result, JobList)
+        assert len(result.jobs) == 1
+        assert result.jobs[0].status == "succeeded"
+        assert result.next_cursor == "eyJrIjoiMSJ9"
+        assert route.calls.last.request.url.params["kind"] == "render"
+
+
+# ---------------------------------------------------------------------------
+# mockups.update (rename)
+# ---------------------------------------------------------------------------
+
+
+class TestMockupUpdate:
+    def test_rename(self, mock_api: respx.MockRouter) -> None:
+        uuid = MOCK_MOCKUP["uuid"]
+        route = mock_api.patch(f"/api/v1/mockups/{uuid}").mock(
+            return_value=httpx.Response(200, json=MOCK_MOCKUP_GET_RESPONSE)
+        )
+        with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
+            result = client.mockups.update(uuid, name="Renamed")
+        assert isinstance(result, Mockup)
+        body = json.loads(route.calls.last.request.content)
+        assert body == {"name": "Renamed"}
+
+
+# ---------------------------------------------------------------------------
+# packages (public)
+# ---------------------------------------------------------------------------
+
+
+class TestPackages:
+    def test_plans(self, mock_api: respx.MockRouter) -> None:
+        mock_api.get("/api/v1/packages/plans").mock(
+            return_value=httpx.Response(200, json=MOCK_PLANS_RESPONSE)
+        )
+        with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
+            result = client.packages.plans()
+        assert isinstance(result, PlanList)
+        assert result.plans[0].slug == "starter"
+        assert result.plans[0].price_monthly == 24.99
+
+    def test_pricing(self, mock_api: respx.MockRouter) -> None:
+        mock_api.get("/api/v1/packages/pricing").mock(
+            return_value=httpx.Response(200, json=MOCK_PLANS_RESPONSE)
+        )
+        with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
+            result = client.packages.pricing()
+        assert len(result.plans) == 1
+
+
+# ---------------------------------------------------------------------------
+# webhook events feed + bulk replay + create body shape
+# ---------------------------------------------------------------------------
+
+
+class TestWebhookExtras:
+    def test_events_feed(self, mock_api: respx.MockRouter) -> None:
+        route = mock_api.get("/api/v1/webhook-endpoints/events").mock(
+            return_value=httpx.Response(200, json=MOCK_WEBHOOK_DELIVERIES_RESPONSE)
+        )
+        with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
+            result = client.webhook_endpoints.events(limit=50)
+        assert len(result.deliveries) == 1
+        assert route.calls.last.request.url.params["limit"] == "50"
+
+    def test_replay_failed(self, mock_api: respx.MockRouter) -> None:
+        route = mock_api.post(
+            "/api/v1/webhook-endpoints/wh-1/deliveries/replay-failed"
+        ).mock(return_value=httpx.Response(202, json={"status": "enqueued", "count": 3}))
+        with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
+            client.webhook_endpoints.replay_failed("wh-1")
+        assert len(route.calls) == 1
+
+    def test_create_has_no_enabled_field(self, mock_api: respx.MockRouter) -> None:
+        route = mock_api.post("/api/v1/webhook-endpoints").mock(
+            return_value=httpx.Response(201, json=MOCK_WEBHOOK_CREATE_RESPONSE)
+        )
+        with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
+            client.webhook_endpoints.create(
+                url="https://x.com/wh",
+                events=["render.succeeded"],
+                description="prod hook",
+            )
+        body = json.loads(route.calls.last.request.content)
+        # `enabled` is update-only on the BE; create must not send it.
+        assert "enabled" not in body
+        assert body["event_types"] == ["render.succeeded"]
+        assert body["description"] == "prod hook"

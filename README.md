@@ -2,7 +2,7 @@
 
 Official Python client for the [SudoMock](https://sudomock.com) Mockup Generator API.
 
-Generate photorealistic product mockups from PSD templates or AI-powered rendering -- all from your Python code.
+Generate photorealistic product mockups from PSD templates or SudoAI 2D mockups -- all from your Python code.
 
 [![PyPI](https://img.shields.io/pypi/v/sudomock)](https://pypi.org/project/sudomock/)
 [![Python](https://img.shields.io/pypi/pyversions/sudomock)](https://pypi.org/project/sudomock/)
@@ -60,20 +60,34 @@ async def main():
 asyncio.run(main())
 ```
 
-## AI Rendering (No PSD Required)
+## SudoAI 2D Rendering
+
+Render artwork onto a **SudoAI 2D mockup** -- a flat product photo whose print
+areas were defined in the dashboard editor. List your 2D mockups, then render
+into their print areas (costs 5 credits per render).
 
 ```python
 from sudomock import SudoMock
 
 client = SudoMock(api_key="sm_your_api_key")
 
-# AI automatically detects the print area and applies perspective
+# Find a 2D mockup and its print areas
+two_d = client.ai.list()
+mockup = two_d.mockups[0]
+
 render = client.ai.render(
-    source_url="https://example.com/product-photo.jpg",
-    artwork_url="https://example.com/your-design.png",
-    product_type="t-shirt",  # optional hint
+    mockup_uuid=mockup.mockup_id,
+    print_areas=[{
+        "uuid": "print-area-uuid",                 # from the 2D mockup
+        "artwork_url": "https://example.com/your-design.png",
+        # or a flat color: "color": "#FF0000"
+    }],
 )
 print(render.url)
+
+# Get / delete a 2D mockup
+client.ai.get(mockup.mockup_id)
+client.ai.delete(mockup.mockup_id)
 ```
 
 ## Async Rendering (Server-Side Queue)
@@ -117,10 +131,17 @@ job = client.renders.create_video(
     smart_objects=[{"uuid": "...", "asset": {"url": "https://example.com/d.png"}}],
     duration_seconds=5,
     audio=False,
+    motion="ambient",               # optional; "ambient" (default) or "showcase"
     advanced_model="veo-3.1-fast",  # optional; otherwise auto-selected by tier
 )
 video = client.jobs.wait(job.render_uuid)
 print(video.url)
+
+# Raw-image mode: animate a public image URL directly (no mockup render step)
+job = client.renders.create_video(
+    image_url="https://example.com/product.jpg",
+    duration_seconds=5,
+)
 ```
 
 ## PSD Upload
@@ -157,6 +178,10 @@ client.webhook_endpoints.rotate_secret(ep.id)
 client.webhook_endpoints.test(ep.id)
 deliveries = client.webhook_endpoints.deliveries(ep.id)
 client.webhook_endpoints.replay_delivery(ep.id, deliveries.deliveries[0].id)
+
+# Cross-endpoint deliveries feed + bulk replay of all failed deliveries
+client.webhook_endpoints.events(limit=100)
+client.webhook_endpoints.replay_failed(ep.id)
 ```
 
 Verify an inbound delivery in your handler (use the **raw** request body).
@@ -245,21 +270,25 @@ client = SudoMock(
 
 | Method | Description |
 |--------|-------------|
-| `client.mockups.list(limit=, offset=, search=)` | List mockup templates |
+| `client.mockups.list(limit=, offset=, name=, created_after=, created_before=, sort=, order=)` | List mockup templates (filter by `name`) |
 | `client.mockups.get(uuid)` | Get mockup details |
+| `client.mockups.update(uuid, name=)` | Rename a mockup |
 | `client.mockups.delete(uuid)` | Delete a mockup |
+
+> Bulk delete (`DELETE /mockups/all`) is dashboard-only (Bearer/JWT auth) and is intentionally not exposed in this api-key SDK.
 
 ### Renders
 
 | Method | Description |
 |--------|-------------|
 | `client.renders.create(mockup_uuid=, smart_objects=, export_options=, export_label=, is_async=False)` | Render a mockup (sync `Render`, or `JobAccepted` when `is_async=True`) |
-| `client.renders.create_video(mockup_uuid=, smart_objects=, duration_seconds=, audio=False, advanced_model=None, ...)` | AI video render (always async, returns `JobAccepted`) |
+| `client.renders.create_video(mockup_uuid=, smart_objects=, image_url=, duration_seconds=, audio=False, motion=None, advanced_model=None, webhook=None, ...)` | AI video render (always async, returns `JobAccepted`). Render mode (`mockup_uuid`+`smart_objects`) or raw-image mode (`image_url`) |
 
 ### Jobs
 
 | Method | Description |
 |--------|-------------|
+| `client.jobs.list(kind=, mockup_uuid=, limit=, cursor=)` | List your async jobs (keyset-paginated, newest first) |
 | `client.jobs.get(render_uuid)` | Get async job status (`queued`/`running`/`succeeded`/`failed`) |
 | `client.jobs.wait(render_uuid, poll_interval=2.0, timeout=300.0)` | Poll until the job reaches a terminal state |
 
@@ -269,11 +298,14 @@ client = SudoMock(
 |--------|-------------|
 | `client.psd.upload(url=, name=None, is_async=False)` | Upload a PSD by URL (free; sync `Mockup` or `JobAccepted`) |
 
-### AI
+### SudoAI 2D Mockups
 
 | Method | Description |
 |--------|-------------|
-| `client.ai.render(source_url=, artwork_url=, product_type=, ...)` | AI-powered render |
+| `client.ai.render(mockup_uuid=, print_areas=, export_options=)` | Render artwork onto a 2D mockup (5 credits) |
+| `client.ai.list(limit=, offset=)` | List your 2D mockups |
+| `client.ai.get(mockup_id)` | Get a 2D mockup |
+| `client.ai.delete(mockup_id)` | Delete a 2D mockup |
 
 ### Account
 
@@ -281,19 +313,28 @@ client = SudoMock(
 |--------|-------------|
 | `client.account.get()` | Get account info, credits, subscription |
 
+### Packages (public)
+
+| Method | Description |
+|--------|-------------|
+| `client.packages.plans()` | List active subscription plans (no auth) |
+| `client.packages.pricing()` | List public pricing (no auth) |
+
 ### Webhook Endpoints
 
 | Method | Description |
 |--------|-------------|
 | `client.webhook_endpoints.list()` | List registered endpoints |
-| `client.webhook_endpoints.create(url=, events=, enabled=True)` | Register an endpoint |
+| `client.webhook_endpoints.create(url=, events=, description=None)` | Register an endpoint (empty `events` = all) |
 | `client.webhook_endpoints.get(uuid)` | Get an endpoint |
-| `client.webhook_endpoints.update(uuid, url=, events=, enabled=)` | Update an endpoint |
+| `client.webhook_endpoints.update(uuid, url=, events=, description=, enabled=)` | Update an endpoint |
 | `client.webhook_endpoints.delete(uuid)` | Delete an endpoint |
 | `client.webhook_endpoints.rotate_secret(uuid)` | Rotate the signing secret |
 | `client.webhook_endpoints.test(uuid)` | Send a synthetic test delivery |
-| `client.webhook_endpoints.deliveries(uuid)` | List delivery attempts |
-| `client.webhook_endpoints.replay_delivery(uuid, delivery_id)` | Replay a failed delivery |
+| `client.webhook_endpoints.events(status=, event_type=, limit=)` | Deliveries feed across all endpoints |
+| `client.webhook_endpoints.deliveries(uuid)` | List delivery attempts for one endpoint |
+| `client.webhook_endpoints.replay_delivery(uuid, delivery_id)` | Replay one failed delivery |
+| `client.webhook_endpoints.replay_failed(uuid)` | Replay all failed/dead deliveries |
 | `verify_webhook_signature(secret, signature, timestamp, raw_body)` | Verify an inbound HMAC signature (split headers) |
 
 ### Export Options
@@ -313,7 +354,7 @@ smart_objects = [{
     "uuid": "smart-object-uuid",
     "asset": {
         "url": "https://example.com/design.png",
-        "fit": "fill",      # "fill", "fit", "stretch"
+        "fit": "fill",      # "fill" (default), "contain", "cover"
         "rotate": 0,         # degrees
         "position": {"top": 100, "left": 100},
         "size": {"width": 800, "height": 600},

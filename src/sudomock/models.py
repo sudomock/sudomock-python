@@ -41,8 +41,12 @@ class Subscription(_Base):
 
     plan: str
     status: str
+    # Plan tier slug (e.g. ``free`` / ``starter`` / ``scale``).
+    tier: Optional[str] = None
     current_period_end: Optional[datetime] = None
     cancel_at_period_end: bool = False
+    # Where the subscription is billed: ``shopify`` | ``stripe`` | ``none``.
+    billing_channel: Optional[str] = None
 
 
 class Usage(_Base):
@@ -131,10 +135,23 @@ class MockupList(_Base):
 
 
 class PrintFile(_Base):
-    """A single rendered output file."""
+    """A single rendered output file.
+
+    Returned by both the still-render path (``renders.create`` —
+    ``smart_object_uuid`` set, plus ``render_uuid``) and the SudoAI 2D-render
+    path (``ai.render`` — ``smart_object_uuid`` absent, ``duration_ms`` /
+    ``export_format`` present instead). Fields that only appear on one path are
+    optional so a single model covers both.
+    """
 
     export_path: str
-    smart_object_uuid: str
+    # Present on still renders; the SudoAI 2D-render print_files omit it.
+    smart_object_uuid: Optional[str] = None
+    # Present on still renders (route-level field, not always in the envelope).
+    render_uuid: Optional[str] = None
+    # Present on SudoAI 2D-render print_files.
+    duration_ms: Optional[int] = None
+    export_format: Optional[str] = None
 
     @property
     def url(self) -> str:
@@ -156,15 +173,18 @@ class Render(_Base):
 
 
 # ---------------------------------------------------------------------------
-# AI render
+# SudoAI 2D render
 # ---------------------------------------------------------------------------
 
 
 class AIRender(_Base):
-    """Result of an AI render request."""
+    """Result of a SudoAI 2D-mockup render (``POST /sudoai/2d-mockup/render``).
+
+    The 2D-render ``print_files`` carry ``export_path`` / ``duration_ms`` /
+    ``export_format`` (no ``smart_object_uuid``).
+    """
 
     print_files: list[PrintFile] = Field(default_factory=list)
-    # AI renders may include extra metadata (segment info, etc.)
 
     @property
     def url(self) -> str:
@@ -172,6 +192,38 @@ class AIRender(_Base):
         if not self.print_files:
             raise ValueError("AI render contains no print files")
         return self.print_files[0].url
+
+
+class TwoDMockup(_Base):
+    """A SudoAI 2D mockup (``GET /sudoai/2d-mockup/{id}`` / list).
+
+    The detail endpoint returns ``quads``; the list endpoint returns
+    ``print_areas``. Both are accepted via ``extra='allow'``.
+    """
+
+    mockup_id: str
+    name: Optional[str] = None
+    status: Optional[str] = None
+    thumbnail_url: Optional[str] = None
+    watermarked_source_url: Optional[str] = None
+    source_width: Optional[int] = None
+    source_height: Optional[int] = None
+    version: Optional[int] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class TwoDMockupList(_Base):
+    """Paginated list of SudoAI 2D mockups.
+
+    The API returns ``{data: [...], total, limit, offset, success}``; the
+    client lifts the array into ``mockups`` with the sibling pagination fields.
+    """
+
+    mockups: list[TwoDMockup] = Field(default_factory=list)
+    total: int
+    limit: int
+    offset: int
 
 
 # ---------------------------------------------------------------------------
@@ -259,6 +311,19 @@ class Job(_Base):
         return self.result_url
 
 
+class JobList(_Base):
+    """Keyset-paginated list of async jobs (``GET /api/v1/jobs``).
+
+    Each item carries the same fields as :class:`Job` plus display extras
+    (``duration_seconds``, ``audio``, ``mockup_name``, ``poster_url``) which are
+    accepted via ``extra='allow'``. Pass :attr:`next_cursor` back to
+    ``jobs.list(cursor=...)`` to fetch the next page (``None`` when exhausted).
+    """
+
+    jobs: list[Job] = Field(default_factory=list)
+    next_cursor: Optional[str] = None
+
+
 # ---------------------------------------------------------------------------
 # Video render
 # ---------------------------------------------------------------------------
@@ -269,14 +334,16 @@ class VideoOptions(_Base):
 
     Attributes:
         duration_seconds: Clip length; must be in the chosen model's allowed
-            set or the API returns ``422``.
+            set or the API returns ``400`` (``INVALID_VIDEO_DURATION``).
         audio: Whether to generate audio (default off).
+        motion: Animation style, ``ambient`` (default) or ``showcase``.
         advanced_model: Optional model override (otherwise auto-selected by
             tier). When omitted the API picks the default for your plan.
     """
 
     duration_seconds: int
     audio: bool = False
+    motion: Optional[str] = None
     advanced_model: Optional[str] = None
 
 
@@ -353,6 +420,34 @@ class WebhookDeliveryList(_Base):
     """
 
     deliveries: list[WebhookDelivery] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Packages / pricing
+# ---------------------------------------------------------------------------
+
+
+class Plan(_Base):
+    """A subscription plan (``GET /api/v1/packages/plans`` / ``/pricing``)."""
+
+    id: str
+    name: str
+    slug: Optional[str] = None
+    tier: Optional[str] = None
+    description: Optional[str] = None
+    price_monthly: Optional[float] = None
+    price_yearly: Optional[float] = None
+    credits_per_month: Optional[int] = None
+    max_concurrent_requests: Optional[int] = None
+    max_concurrent_uploads: Optional[int] = None
+    stripe_price_id: Optional[str] = None
+    stripe_price_id_yearly: Optional[str] = None
+
+
+class PlanList(_Base):
+    """List of available plans (the API returns ``{plans: [...]}``)."""
+
+    plans: list[Plan] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------

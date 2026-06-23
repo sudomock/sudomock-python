@@ -152,13 +152,13 @@ class TestAsyncRenders:
 
 class TestAsyncAI:
     async def test_ai_render(self, mock_api: respx.MockRouter) -> None:
-        mock_api.post("/api/v1/sudoai/render").mock(
+        mock_api.post("/api/v1/sudoai/2d-mockup/render").mock(
             return_value=httpx.Response(200, json=MOCK_AI_RENDER_RESPONSE)
         )
         async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
             result = await client.ai.render(
-                source_url="https://example.com/product.jpg",
-                artwork_url="https://example.com/design.png",
+                mockup_uuid="2d-mockup-001",
+                print_areas=[{"uuid": "pa-1", "artwork_url": "https://x.com/d.png"}],
             )
 
         assert isinstance(result, AIRender)

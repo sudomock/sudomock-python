@@ -26,6 +26,9 @@ from .conftest import (
     ERROR_422,
     ERROR_429,
     ERROR_500,
+    MOCK_2D_MOCKUP_DELETE_RESPONSE,
+    MOCK_2D_MOCKUP_GET_RESPONSE,
+    MOCK_2D_MOCKUP_LIST_RESPONSE,
     MOCK_AI_RENDER_RESPONSE,
     MOCK_ME_RESPONSE,
     MOCK_MOCKUP,
@@ -231,36 +234,73 @@ class TestRenders:
 
 class TestAI:
     def test_ai_render(self, mock_api: respx.MockRouter) -> None:
-        mock_api.post("/api/v1/sudoai/render").mock(
+        route = mock_api.post("/api/v1/sudoai/2d-mockup/render").mock(
             return_value=httpx.Response(200, json=MOCK_AI_RENDER_RESPONSE)
         )
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
             result = client.ai.render(
-                source_url="https://example.com/product.jpg",
-                artwork_url="https://example.com/design.png",
+                mockup_uuid="2d-mockup-001",
+                print_areas=[
+                    {
+                        "uuid": "pa-1",
+                        "artwork_url": "https://example.com/design.png",
+                    }
+                ],
             )
 
         assert isinstance(result, AIRender)
         assert "ai-renders" in result.url
+        # 2D-render print_files have no smart_object_uuid.
+        assert result.print_files[0].smart_object_uuid is None
+        assert result.print_files[0].export_format == "webp"
+
+        import json
+
+        body = json.loads(route.calls.last.request.content)
+        # Real contract: mockup_uuid + print_areas[]; the old source_url/
+        # artwork_url/product_type fields must NOT be present.
+        assert body["mockup_uuid"] == "2d-mockup-001"
+        assert body["print_areas"][0]["uuid"] == "pa-1"
+        assert "source_url" not in body
+        assert "product_type" not in body
 
     def test_ai_render_with_options(self, mock_api: respx.MockRouter) -> None:
-        route = mock_api.post("/api/v1/sudoai/render").mock(
+        route = mock_api.post("/api/v1/sudoai/2d-mockup/render").mock(
             return_value=httpx.Response(200, json=MOCK_AI_RENDER_RESPONSE)
         )
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
             client.ai.render(
-                source_url="https://example.com/product.jpg",
-                artwork_url="https://example.com/design.png",
-                product_type="t-shirt",
-                placement={"position": "center", "coverage": 0.6},
+                mockup_uuid="2d-mockup-001",
+                print_areas=[{"uuid": "pa-1", "color": "#FF0000"}],
                 export_options={"image_format": "png"},
             )
 
         import json
 
         body = json.loads(route.calls.last.request.content)
-        assert body["product_type"] == "t-shirt"
-        assert body["placement"]["position"] == "center"
+        assert body["print_areas"][0]["color"] == "#FF0000"
+        assert body["export_options"]["image_format"] == "png"
+
+    def test_ai_list_get_delete(self, mock_api: respx.MockRouter) -> None:
+        mock_api.get("/api/v1/sudoai/2d-mockups").mock(
+            return_value=httpx.Response(200, json=MOCK_2D_MOCKUP_LIST_RESPONSE)
+        )
+        mock_api.get("/api/v1/sudoai/2d-mockup/2d-mockup-001").mock(
+            return_value=httpx.Response(200, json=MOCK_2D_MOCKUP_GET_RESPONSE)
+        )
+        mock_api.delete("/api/v1/sudoai/2d-mockup/2d-mockup-001").mock(
+            return_value=httpx.Response(200, json=MOCK_2D_MOCKUP_DELETE_RESPONSE)
+        )
+        with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
+            listing = client.ai.list(limit=20)
+            assert listing.total == 1
+            assert listing.mockups[0].mockup_id == "2d-mockup-001"
+
+            one = client.ai.get("2d-mockup-001")
+            assert one.mockup_id == "2d-mockup-001"
+            assert one.name == "Flat Tee Front"
+
+            client.ai.delete("2d-mockup-001")  # should not raise
 
 
 # ---------------------------------------------------------------------------
