@@ -183,17 +183,17 @@ class TestAIRender:
 class TestJobAccepted:
     def test_parse(self) -> None:
         j = JobAccepted(
-            render_uuid="r-1",
+            job_id="r-1",
             kind="render",
             status="queued",
             status_url="/api/v1/jobs/r-1",
         )
-        assert j.render_uuid == "r-1"
+        assert j.job_id == "r-1"
         assert j.status_url == "/api/v1/jobs/r-1"
 
     def test_minimal(self) -> None:
-        j = JobAccepted(render_uuid="r-1")
-        assert j.render_uuid == "r-1"
+        j = JobAccepted(job_id="r-1")
+        assert j.job_id == "r-1"
         assert j.status is None
 
 
@@ -222,7 +222,7 @@ class TestJob:
     def test_payg_nested_cost(self) -> None:
         """PAYG jobs surface the real cost in a nested payg object."""
         job = Job(
-            render_uuid="payg-1",
+            job_id="payg-1",
             kind="render",
             status="succeeded",
             result_url="https://cdn.sudomock.com/r.webp",

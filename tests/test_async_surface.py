@@ -70,7 +70,7 @@ class TestAsyncRender:
             )
 
         assert isinstance(result, JobAccepted)
-        assert result.render_uuid == "job-uuid-abc123"
+        assert result.job_id == "job-uuid-abc123"
         assert result.status_url == "/api/v1/jobs/job-uuid-abc123"
 
         body = json.loads(route.calls.last.request.content)
@@ -174,7 +174,7 @@ class TestVideo:
             )
 
         assert isinstance(result, JobAccepted)
-        assert result.render_uuid == "video-job-xyz789"
+        assert result.job_id == "video-job-xyz789"
 
         body = json.loads(route.calls.last.request.content)
         assert body["video"]["duration_seconds"] == 5
@@ -242,7 +242,7 @@ class TestPsdUpload:
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
             result = client.psd.upload(url="https://x.com/file.psd", is_async=True)
         assert isinstance(result, JobAccepted)
-        assert result.render_uuid == "upload-job-001"
+        assert result.job_id == "upload-job-001"
         body = json.loads(route.calls.last.request.content)
         assert body["is_async"] is True
         assert body["psd_file_url"] == "https://x.com/file.psd"

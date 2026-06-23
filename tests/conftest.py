@@ -146,7 +146,7 @@ MOCK_PLANS_RESPONSE = {
 MOCK_JOBS_LIST_RESPONSE = {
     "jobs": [
         {
-            "render_uuid": "job-uuid-abc123",
+            "job_id": "job-uuid-abc123",
             "kind": "render",
             "status": "succeeded",
             "result_url": "https://cdn.sudomock.com/renders/abc/render.webp",
@@ -194,26 +194,26 @@ MOCK_ME_RESPONSE = {
 # Async job submission (202). The async submit + job-poll endpoints return BARE
 # bodies (no {success, data} envelope) — these fixtures match the real BE.
 MOCK_JOB_ACCEPTED_RESPONSE = {
-    "render_uuid": "job-uuid-abc123",
+    "job_id": "job-uuid-abc123",
     "kind": "render",
     "status": "queued",
     "status_url": "/api/v1/jobs/job-uuid-abc123",
 }
 
 MOCK_JOB_QUEUED_RESPONSE = {
-    "render_uuid": "job-uuid-abc123",
+    "job_id": "job-uuid-abc123",
     "kind": "render",
     "status": "queued",
 }
 
 MOCK_JOB_RUNNING_RESPONSE = {
-    "render_uuid": "job-uuid-abc123",
+    "job_id": "job-uuid-abc123",
     "kind": "render",
     "status": "running",
 }
 
 MOCK_JOB_SUCCEEDED_RESPONSE = {
-    "render_uuid": "job-uuid-abc123",
+    "job_id": "job-uuid-abc123",
     "kind": "render",
     "status": "succeeded",
     "model": None,
@@ -229,7 +229,7 @@ MOCK_JOB_SUCCEEDED_RESPONSE = {
 # A PAYG job: jobs.credits is 0 on the BE, the real cost is surfaced via the
 # nested payg object (credits_charged == billable count, NOT 0).
 MOCK_JOB_PAYG_SUCCEEDED_RESPONSE = {
-    "render_uuid": "payg-job-001",
+    "job_id": "payg-job-001",
     "kind": "render",
     "status": "succeeded",
     "model": None,
@@ -243,7 +243,7 @@ MOCK_JOB_PAYG_SUCCEEDED_RESPONSE = {
 }
 
 MOCK_JOB_FAILED_RESPONSE = {
-    "render_uuid": "job-uuid-abc123",
+    "job_id": "job-uuid-abc123",
     "kind": "render",
     "status": "failed",
     "result_url": None,
@@ -251,7 +251,7 @@ MOCK_JOB_FAILED_RESPONSE = {
 }
 
 MOCK_VIDEO_JOB_ACCEPTED_RESPONSE = {
-    "render_uuid": "video-job-xyz789",
+    "job_id": "video-job-xyz789",
     "kind": "video",
     "status": "queued",
     "status_url": "/api/v1/jobs/video-job-xyz789",
@@ -265,7 +265,7 @@ MOCK_PSD_UPLOAD_SYNC_RESPONSE = {
 
 # Async PSD submit (202) returns a BARE body (no envelope).
 MOCK_PSD_UPLOAD_ASYNC_RESPONSE = {
-    "render_uuid": "upload-job-001",
+    "job_id": "upload-job-001",
     "kind": "upload",
     "status": "queued",
     "status_url": "/api/v1/jobs/upload-job-001",

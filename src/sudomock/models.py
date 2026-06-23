@@ -237,10 +237,10 @@ class JobAccepted(_Base):
     Returned by ``renders.create(..., is_async=True)``, ``psd.upload(...,
     is_async=True)`` and ``renders.create_video(...)``. Poll for completion
     with :meth:`jobs.get` (or :meth:`jobs.wait` / ``wait_for_job``) using
-    :attr:`render_uuid`.
+    :attr:`job_id`.
     """
 
-    render_uuid: str
+    job_id: str
     kind: Optional[str] = None
     status: Optional[str] = None
     status_url: Optional[str] = None
@@ -249,7 +249,7 @@ class JobAccepted(_Base):
 class PaygCost(_Base):
     """Pay-as-you-go cost breakdown for a job (only present on PAYG jobs).
 
-    Mirrors the nested ``payg`` object in ``GET /api/v1/jobs/{render_uuid}``:
+    Mirrors the nested ``payg`` object in ``GET /api/v1/jobs/{job_id}``:
     ``{credits, unit_price, cost}`` where ``cost`` is ``credits * unit_price``
     in USD (or ``None`` if either input is missing).
     """
@@ -260,14 +260,14 @@ class PaygCost(_Base):
 
 
 class Job(_Base):
-    """Status of an async job from ``GET /api/v1/jobs/{render_uuid}``.
+    """Status of an async job from ``GET /api/v1/jobs/{job_id}``.
 
     The terminal states are ``"succeeded"`` and ``"failed"``; ``"queued"``
     and ``"running"`` are non-terminal. The current state value is exposed on
     :attr:`status` (the API field is ``status``).
     """
 
-    render_uuid: Optional[str] = None
+    job_id: Optional[str] = None
     kind: Optional[str] = None
     status: str
     model: Optional[str] = None

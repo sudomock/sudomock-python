@@ -180,7 +180,7 @@ class _RendersResource:
         Returns:
             :class:`Render` (synchronous) with ``print_files`` and a convenience
             ``.url`` property, or :class:`JobAccepted` (when ``is_async=True``)
-            carrying ``render_uuid`` and ``status_url``.
+            carrying ``job_id`` and ``status_url``.
 
         Raises:
             InsufficientCreditsError: If the account has no remaining credits.
@@ -204,7 +204,7 @@ class _RendersResource:
             timeout=self._transport._render_timeout,
         )
         if is_async or resp.status_code == 202:
-            # Async submit (202) returns a BARE body {render_uuid, kind, status,
+            # Async submit (202) returns a BARE body {job_id, kind, status,
             # status_url} — no {success, data} envelope. The sync path still wraps.
             return JobAccepted.model_validate(resp.json())
         return Render.model_validate(resp.json()["data"])
@@ -256,7 +256,7 @@ class _RendersResource:
                 ``{"url": "https://your-app.com/hook"}``.
 
         Returns:
-            :class:`JobAccepted` with ``render_uuid`` and ``status_url``. Poll
+            :class:`JobAccepted` with ``job_id`` and ``status_url``. Poll
             with :meth:`SudoMock.jobs.get` / :meth:`SudoMock.jobs.wait`.
 
         Raises:
@@ -300,7 +300,7 @@ class _RendersResource:
             json=body,
             timeout=self._transport._render_timeout,
         )
-        # Video submit returns a BARE 202 body {render_uuid, kind, status,
+        # Video submit returns a BARE 202 body {job_id, kind, status,
         # status_url, ...} — no {success, data} envelope.
         return JobAccepted.model_validate(resp.json())
 
@@ -345,11 +345,11 @@ class _JobsResource:
         # no {success, data} envelope.
         return JobList.model_validate(resp.json())
 
-    def get(self, render_uuid: str) -> Job:
+    def get(self, job_id: str) -> Job:
         """Fetch the current status of an async job.
 
         Args:
-            render_uuid: The ``render_uuid`` returned by an async submission.
+            job_id: The ``job_id`` returned by an async submission.
 
         Returns:
             :class:`Job` with ``status`` (``queued`` / ``running`` /
@@ -358,14 +358,14 @@ class _JobsResource:
         Raises:
             NotFoundError: If the job does not exist or is not owned by you.
         """
-        resp = self._transport.request("GET", f"/api/v1/jobs/{render_uuid}")
-        # The job-poll endpoint returns a BARE body {render_uuid, status, ...} —
+        resp = self._transport.request("GET", f"/api/v1/jobs/{job_id}")
+        # The job-poll endpoint returns a BARE body {job_id, status, ...} —
         # no {success, data} envelope.
         return Job.model_validate(resp.json())
 
     def wait(
         self,
-        render_uuid: str,
+        job_id: str,
         *,
         poll_interval: float = 2.0,
         timeout: float = 300.0,
@@ -373,7 +373,7 @@ class _JobsResource:
         """Poll :meth:`get` until the job reaches a terminal state.
 
         Args:
-            render_uuid: The ``render_uuid`` returned by an async submission.
+            job_id: The ``job_id`` returned by an async submission.
             poll_interval: Seconds to wait between polls (default 2.0).
             timeout: Maximum total seconds to wait before raising (default 300).
 
@@ -387,12 +387,12 @@ class _JobsResource:
         """
         deadline = time.monotonic() + timeout
         while True:
-            job = self.get(render_uuid)
+            job = self.get(job_id)
             if job.is_terminal:
                 return job
             if time.monotonic() >= deadline:
                 raise TimeoutError(
-                    f"Job {render_uuid} did not finish within {timeout}s "
+                    f"Job {job_id} did not finish within {timeout}s "
                     f"(last status: {job.status!r})"
                 )
             time.sleep(poll_interval)
@@ -443,7 +443,7 @@ class _PsdResource:
             timeout=self._transport._render_timeout,
         )
         if is_async or resp.status_code == 202:
-            # Async submit (202) returns a BARE body {render_uuid, kind, status,
+            # Async submit (202) returns a BARE body {job_id, kind, status,
             # status_url} — no {success, data} envelope. The sync path still wraps.
             return JobAccepted.model_validate(resp.json())
         return Mockup.model_validate(resp.json()["data"])
