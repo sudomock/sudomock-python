@@ -283,7 +283,7 @@ class TestWebhookModels:
         d = WebhookDelivery(
             id="d-1",
             endpoint_id="wh-1",
-            job_uuid="job-1",
+            job_id="job-1",
             event_type="render.succeeded",
             status="delivered",
             http_status=200,

@@ -404,13 +404,13 @@ class WebhookDelivery(_Base):
     """A single delivery-attempt log row.
 
     Mirrors the API's ``WebhookDeliveryResponse``: ``id`` is the row id,
-    ``job_uuid`` is the originating job, the HTTP response code is
+    ``job_id`` is the originating job, the HTTP response code is
     ``http_status``, and ``attempt`` is the retry counter.
     """
 
     id: str
     endpoint_id: Optional[str] = None
-    job_uuid: Optional[str] = None
+    job_id: Optional[str] = None
     event_type: Optional[str] = None
     status: Optional[str] = None
     http_status: Optional[int] = None
