@@ -260,7 +260,7 @@ client = SudoMock(
     base_url="https://api.sudomock.com", # default
     timeout=30.0,                         # default request timeout (seconds)
     render_timeout=120.0,                 # render request timeout (seconds)
-    max_retries=3,                        # retry on 429/5xx (exponential backoff)
+    max_retries=3,                        # TOTAL attempts on 429/5xx/network: initial + up to 2 retries (exponential backoff)
 )
 ```
 

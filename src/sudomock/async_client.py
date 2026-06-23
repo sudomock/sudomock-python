@@ -56,6 +56,7 @@ from .models import (
     Render,
     TwoDMockup,
     TwoDMockupList,
+    VideoOptions,
     WebhookDeliveryList,
     WebhookEndpoint,
     WebhookEndpointList,
@@ -230,7 +231,6 @@ class _AsyncRendersResource:
         motion: Optional[str] = None,
         advanced_model: Optional[str] = None,
         export_options: Optional[dict[str, Any]] = None,
-        export_label: Optional[str] = None,
         webhook: Optional[dict[str, Any]] = None,
     ) -> JobAccepted:
         """Create an AI video render (always async, returns HTTP 202).
@@ -255,14 +255,16 @@ class _AsyncRendersResource:
                 "mockup_uuid (render mode)."
             )
 
-        video: dict[str, Any] = {
-            "duration_seconds": duration_seconds,
-            "audio": audio,
-        }
-        if motion is not None:
-            video["motion"] = motion
-        if advanced_model is not None:
-            video["advanced_model"] = advanced_model
+        # Validate + serialize the animation options through the typed model so
+        # the public VideoOptions surface is the single source of truth. Unset
+        # optionals (motion / advanced_model) are dropped, matching the API's
+        # "omit = use default" contract.
+        video = VideoOptions(
+            duration_seconds=duration_seconds,
+            audio=audio,
+            motion=motion,
+            advanced_model=advanced_model,
+        ).model_dump(exclude_none=True)
 
         body: dict[str, Any] = {"video": video}
         if mockup_uuid is not None:
@@ -273,8 +275,6 @@ class _AsyncRendersResource:
             body["image_url"] = image_url
         if export_options is not None:
             body["export_options"] = export_options
-        if export_label is not None:
-            body["export_label"] = export_label
         if webhook is not None:
             body["webhook"] = webhook
 
@@ -694,7 +694,9 @@ class AsyncSudoMock:
         base_url: API base URL (default: ``https://api.sudomock.com``).
         timeout: Default request timeout in seconds (default: 30).
         render_timeout: Timeout for render requests in seconds (default: 120).
-        max_retries: Maximum retry attempts for transient errors (default: 3).
+        max_retries: Maximum *total* request attempts for transient errors
+            (429 / 5xx / network), not the number of extra retries. The default
+            of 3 means the initial request plus up to 2 retries.
 
     Usage::
 

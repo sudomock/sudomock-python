@@ -7,7 +7,7 @@ added to the API do not break existing SDK versions.
 from __future__ import annotations
 
 from datetime import datetime  # noqa: TCH003 - Pydantic needs this at runtime
-from typing import Any, Optional
+from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -116,6 +116,13 @@ class Mockup(_Base):
     smart_objects: list[SmartObject] = Field(default_factory=list)
     width: Optional[int] = None
     height: Optional[int] = None
+    # Main preview thumbnail (720px). This is the field returned by the API for
+    # PSD mockups -- ``psd.upload`` (sync), ``mockups.list`` and ``mockups.get``
+    # all populate ``thumbnail`` (an empty string when generation failed). The
+    # full size ladder (720 / 480 / 240) is accepted via ``extra='allow'`` under
+    # ``thumbnails``. ``thumbnail_url`` below is kept for forward-compatibility
+    # only and is not currently emitted by these endpoints.
+    thumbnail: Optional[str] = None
     thumbnail_url: Optional[str] = None
     created_at: Optional[datetime] = None
 
@@ -334,7 +341,8 @@ class VideoOptions(_Base):
 
     Attributes:
         duration_seconds: Clip length; must be in the chosen model's allowed
-            set or the API returns ``400`` (``INVALID_VIDEO_DURATION``).
+            set or the API returns ``400`` (``INVALID_VIDEO_DURATION``). If
+            omitted at the API the server defaults to ``5`` seconds.
         audio: Whether to generate audio (default off).
         motion: Animation style, ``ambient`` (default) or ``showcase``.
         advanced_model: Optional model override (otherwise auto-selected by
@@ -448,15 +456,3 @@ class PlanList(_Base):
     """List of available plans (the API returns ``{plans: [...]}``)."""
 
     plans: list[Plan] = Field(default_factory=list)
-
-
-# ---------------------------------------------------------------------------
-# Generic API envelope
-# ---------------------------------------------------------------------------
-
-
-class ApiResponse(_Base):
-    """Generic ``{success, data}`` wrapper returned by all endpoints."""
-
-    success: bool
-    data: Optional[dict[str, Any]] = None
