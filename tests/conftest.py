@@ -298,14 +298,14 @@ MOCK_WEBHOOK_GET_RESPONSE = MOCK_WEBHOOK_ENDPOINT
 # Rotate returns the full endpoint with the unmasked secret.
 MOCK_WEBHOOK_ROTATE_RESPONSE = {**MOCK_WEBHOOK_ENDPOINT, "secret": "whsec_rotated456"}
 
-# Delivery rows mirror WebhookDeliveryResponse: id, endpoint_id, job_uuid,
+# Delivery rows mirror WebhookDeliveryResponse: id, endpoint_id, job_id,
 # event_type, status, http_status (not response_status), attempt, last_error.
 # The deliveries endpoint returns a BARE JSON array.
 MOCK_WEBHOOK_DELIVERIES_RESPONSE = [
     {
         "id": "dlv-1",
         "endpoint_id": "wh-uuid-1",
-        "job_uuid": "job-uuid-abc123",
+        "job_id": "job-uuid-abc123",
         "event_type": "render.succeeded",
         "status": "failed",
         "http_status": 500,
