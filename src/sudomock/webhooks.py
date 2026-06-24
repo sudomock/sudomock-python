@@ -83,20 +83,14 @@ def verify_webhook_signature(
             does not match.
     """
     if not signature_header:
-        raise WebhookVerificationError(
-            "Missing X-SudoMock-Signature header"
-        )
+        raise WebhookVerificationError("Missing X-SudoMock-Signature header")
     if timestamp_header is None or timestamp_header == "":
-        raise WebhookVerificationError(
-            "Missing X-SudoMock-Timestamp header"
-        )
+        raise WebhookVerificationError("Missing X-SudoMock-Timestamp header")
 
     try:
         ts_int = int(timestamp_header)
     except (ValueError, TypeError) as exc:
-        raise WebhookVerificationError(
-            f"Invalid timestamp header: {timestamp_header!r}"
-        ) from exc
+        raise WebhookVerificationError(f"Invalid timestamp header: {timestamp_header!r}") from exc
 
     if tolerance > 0:
         age = abs(int(time.time()) - ts_int)
@@ -112,9 +106,7 @@ def verify_webhook_signature(
     # exactly. We re-stringify the parsed int to normalize int/str input but
     # the server always sends a canonical decimal string.
     signed_payload = _to_bytes(str(ts_int)) + b"." + body_bytes
-    computed = hmac.new(
-        _to_bytes(secret), signed_payload, hashlib.sha256
-    ).hexdigest()
+    computed = hmac.new(_to_bytes(secret), signed_payload, hashlib.sha256).hexdigest()
 
     if not hmac.compare_digest(computed, signature_header):
         raise WebhookVerificationError("Signature mismatch")

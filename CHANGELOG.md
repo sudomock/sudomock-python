@@ -5,13 +5,17 @@ All notable changes to the `sudomock` Python SDK are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.3.0] - 2026-06-24
 
 ### Added
 - `Mockup.thumbnail` field, documenting the 720px main thumbnail returned by
   `psd.upload`, `mockups.list`, and `mockups.get`.
 
 ### Changed
+- The async job identifier is now `job_id` everywhere (202 accept, job poll, and
+  webhook delivery); `WebhookDelivery.job_uuid` is now `WebhookDelivery.job_id`,
+  matching the SudoMock API contract. The synchronous render's `render_uuid` is
+  unchanged (it is the render's transaction id, a distinct concept).
 - `renders.create_video` now validates and serializes its animation options
   through the typed `VideoOptions` model (single source of truth) instead of an
   inline dict.

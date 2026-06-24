@@ -130,9 +130,7 @@ class _MockupsResource:
         Raises:
             NotFoundError: If the mockup does not exist.
         """
-        resp = self._transport.request(
-            "PATCH", f"/api/v1/mockups/{uuid}", json={"name": name}
-        )
+        resp = self._transport.request("PATCH", f"/api/v1/mockups/{uuid}", json={"name": name})
         data = resp.json()["data"]
         return Mockup.model_validate(data)
 
@@ -392,8 +390,7 @@ class _JobsResource:
                 return job
             if time.monotonic() >= deadline:
                 raise TimeoutError(
-                    f"Job {job_id} did not finish within {timeout}s "
-                    f"(last status: {job.status!r})"
+                    f"Job {job_id} did not finish within {timeout}s (last status: {job.status!r})"
                 )
             time.sleep(poll_interval)
 
@@ -543,9 +540,7 @@ class _WebhookEndpointsResource:
             body["description"] = description
         if enabled is not None:
             body["enabled"] = enabled
-        resp = self._transport.request(
-            "PATCH", f"/api/v1/webhook-endpoints/{uuid}", json=body
-        )
+        resp = self._transport.request("PATCH", f"/api/v1/webhook-endpoints/{uuid}", json=body)
         # BARE endpoint object (no {success, data} envelope).
         return WebhookEndpoint.model_validate(resp.json())
 
@@ -559,9 +554,7 @@ class _WebhookEndpointsResource:
         Returns:
             :class:`WebhookSecret` with the new ``secret``.
         """
-        resp = self._transport.request(
-            "POST", f"/api/v1/webhook-endpoints/{uuid}/rotate-secret"
-        )
+        resp = self._transport.request("POST", f"/api/v1/webhook-endpoints/{uuid}/rotate-secret")
         # BARE endpoint object carrying the unmasked `secret` (no {success, data}
         # envelope); WebhookSecret picks the secret, extra fields are accepted.
         return WebhookSecret.model_validate(resp.json())
@@ -572,9 +565,7 @@ class _WebhookEndpointsResource:
 
     def deliveries(self, uuid: str) -> WebhookDeliveryList:
         """List recent delivery attempts for an endpoint."""
-        resp = self._transport.request(
-            "GET", f"/api/v1/webhook-endpoints/{uuid}/deliveries"
-        )
+        resp = self._transport.request("GET", f"/api/v1/webhook-endpoints/{uuid}/deliveries")
         # The API returns a BARE JSON array of delivery rows — no {success, data}
         # envelope. Wrap it into the convenience list model.
         return WebhookDeliveryList(deliveries=resp.json())
@@ -688,9 +679,7 @@ class _AIResource:
         Raises:
             NotFoundError: If the 2D mockup does not exist.
         """
-        resp = self._transport.request(
-            "GET", f"/api/v1/sudoai/2d-mockup/{mockup_id}"
-        )
+        resp = self._transport.request("GET", f"/api/v1/sudoai/2d-mockup/{mockup_id}")
         return TwoDMockup.model_validate(resp.json()["data"])
 
     def delete(self, mockup_id: str) -> None:
@@ -699,9 +688,7 @@ class _AIResource:
         Raises:
             NotFoundError: If the 2D mockup does not exist.
         """
-        self._transport.request(
-            "DELETE", f"/api/v1/sudoai/2d-mockup/{mockup_id}"
-        )
+        self._transport.request("DELETE", f"/api/v1/sudoai/2d-mockup/{mockup_id}")
 
 
 class _AccountResource:

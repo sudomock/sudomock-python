@@ -368,8 +368,7 @@ class _AsyncJobsResource:
                 return job
             if time.monotonic() >= deadline:
                 raise TimeoutError(
-                    f"Job {job_id} did not finish within {timeout}s "
-                    f"(last status: {job.status!r})"
+                    f"Job {job_id} did not finish within {timeout}s (last status: {job.status!r})"
                 )
             await asyncio.sleep(poll_interval)
 
@@ -455,9 +454,7 @@ class _AsyncWebhookEndpointsResource:
         body: dict[str, Any] = {"url": url, "event_types": events}
         if description is not None:
             body["description"] = description
-        resp = await self._transport.request(
-            "POST", "/api/v1/webhook-endpoints", json=body
-        )
+        resp = await self._transport.request("POST", "/api/v1/webhook-endpoints", json=body)
         # BARE endpoint object (no {success, data} envelope).
         return WebhookEndpoint.model_validate(resp.json())
 
@@ -485,9 +482,7 @@ class _AsyncWebhookEndpointsResource:
 
     async def get(self, uuid: str) -> WebhookEndpoint:
         """Get a single webhook endpoint by UUID."""
-        resp = await self._transport.request(
-            "GET", f"/api/v1/webhook-endpoints/{uuid}"
-        )
+        resp = await self._transport.request("GET", f"/api/v1/webhook-endpoints/{uuid}")
         # BARE endpoint object (no {success, data} envelope).
         return WebhookEndpoint.model_validate(resp.json())
 
@@ -531,15 +526,11 @@ class _AsyncWebhookEndpointsResource:
 
     async def test(self, uuid: str) -> None:
         """Send a synthetic test delivery to an endpoint."""
-        await self._transport.request(
-            "POST", f"/api/v1/webhook-endpoints/{uuid}/test"
-        )
+        await self._transport.request("POST", f"/api/v1/webhook-endpoints/{uuid}/test")
 
     async def deliveries(self, uuid: str) -> WebhookDeliveryList:
         """List recent delivery attempts for an endpoint."""
-        resp = await self._transport.request(
-            "GET", f"/api/v1/webhook-endpoints/{uuid}/deliveries"
-        )
+        resp = await self._transport.request("GET", f"/api/v1/webhook-endpoints/{uuid}/deliveries")
         # The API returns a BARE JSON array of delivery rows — no {success, data}
         # envelope. Wrap it into the convenience list model.
         return WebhookDeliveryList(deliveries=resp.json())
@@ -634,9 +625,7 @@ class _AsyncAIResource:
         Raises:
             NotFoundError: If the 2D mockup does not exist.
         """
-        resp = await self._transport.request(
-            "GET", f"/api/v1/sudoai/2d-mockup/{mockup_id}"
-        )
+        resp = await self._transport.request("GET", f"/api/v1/sudoai/2d-mockup/{mockup_id}")
         return TwoDMockup.model_validate(resp.json()["data"])
 
     async def delete(self, mockup_id: str) -> None:
@@ -645,9 +634,7 @@ class _AsyncAIResource:
         Raises:
             NotFoundError: If the 2D mockup does not exist.
         """
-        await self._transport.request(
-            "DELETE", f"/api/v1/sudoai/2d-mockup/{mockup_id}"
-        )
+        await self._transport.request("DELETE", f"/api/v1/sudoai/2d-mockup/{mockup_id}")
 
 
 class _AsyncAccountResource:
