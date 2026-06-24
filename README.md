@@ -388,6 +388,6 @@ SudoMock also offers an official [Model Context Protocol](https://modelcontextpr
 ## Links
 
 - [SudoMock Website](https://sudomock.com)
-- [API Documentation](https://docs.sudomock.com)
+- [API Documentation](https://sudomock.com/docs)
 - [Dashboard](https://app.sudomock.com)
 - [MCP Server](https://github.com/sudomock/sudomock-mcp-server)
