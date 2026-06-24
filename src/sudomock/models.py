@@ -312,8 +312,7 @@ class Job(_Base):
         """Shortcut: the result URL (only available once succeeded)."""
         if not self.result_url:
             raise ValueError(
-                f"Job has no result_url (status={self.status!r}); "
-                "it may not have succeeded yet"
+                f"Job has no result_url (status={self.status!r}); it may not have succeeded yet"
             )
         return self.result_url
 

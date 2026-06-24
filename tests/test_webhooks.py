@@ -120,9 +120,9 @@ class TestWebhookEndpointsCRUD:
         assert result.deliveries[0].id == "dlv-1"
 
     def test_replay_delivery(self, mock_api: respx.MockRouter) -> None:
-        route = mock_api.post(
-            "/api/v1/webhook-endpoints/wh-uuid-1/deliveries/dlv-1/replay"
-        ).mock(return_value=httpx.Response(202))
+        route = mock_api.post("/api/v1/webhook-endpoints/wh-uuid-1/deliveries/dlv-1/replay").mock(
+            return_value=httpx.Response(202)
+        )
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
             client.webhook_endpoints.replay_delivery("wh-uuid-1", "dlv-1")
         assert len(route.calls) == 1
