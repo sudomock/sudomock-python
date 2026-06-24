@@ -35,7 +35,7 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://sudomock.com"
-Documentation = "https://docs.sudomock.com"
+Documentation = "https://sudomock.com/docs"
 Repository = "https://github.com/sudomock/sudomock-python"
 Issues = "https://github.com/sudomock/sudomock-python/issues"
 Changelog = "https://github.com/sudomock/sudomock-python/blob/main/CHANGELOG.md"
