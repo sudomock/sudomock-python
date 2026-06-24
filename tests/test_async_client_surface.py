@@ -60,14 +60,10 @@ class TestAsyncRenderSurface:
         assert body["is_async"] is True
 
     async def test_is_async_402(self, mock_api: respx.MockRouter) -> None:
-        mock_api.post("/api/v1/renders").mock(
-            return_value=httpx.Response(402, json=ERROR_402)
-        )
+        mock_api.post("/api/v1/renders").mock(return_value=httpx.Response(402, json=ERROR_402))
         async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
             with pytest.raises(InsufficientCreditsError):
-                await client.renders.create(
-                    mockup_uuid="m-1", smart_objects=_SO, is_async=True
-                )
+                await client.renders.create(mockup_uuid="m-1", smart_objects=_SO, is_async=True)
 
 
 class TestAsyncJobs:
@@ -81,9 +77,7 @@ class TestAsyncJobs:
         assert job.succeeded
 
     async def test_get_404(self, mock_api: respx.MockRouter) -> None:
-        mock_api.get("/api/v1/jobs/x").mock(
-            return_value=httpx.Response(404, json=ERROR_404)
-        )
+        mock_api.get("/api/v1/jobs/x").mock(return_value=httpx.Response(404, json=ERROR_404))
         async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
             with pytest.raises(NotFoundError):
                 await client.jobs.get("x")
@@ -159,9 +153,9 @@ class TestAsyncWebhooks:
         mock_api.post("/api/v1/webhook-endpoints/wh-1/rotate-secret").mock(
             return_value=httpx.Response(200, json=rotate_body)
         )
-        route = mock_api.post(
-            "/api/v1/webhook-endpoints/wh-1/deliveries/dlv-1/replay"
-        ).mock(return_value=httpx.Response(202))
+        route = mock_api.post("/api/v1/webhook-endpoints/wh-1/deliveries/dlv-1/replay").mock(
+            return_value=httpx.Response(202)
+        )
         async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
             secret = await client.webhook_endpoints.rotate_secret("wh-1")
             await client.webhook_endpoints.replay_delivery("wh-1", "dlv-1")

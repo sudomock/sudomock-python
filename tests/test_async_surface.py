@@ -65,9 +65,7 @@ class TestAsyncRender:
             return_value=httpx.Response(202, json=MOCK_JOB_ACCEPTED_RESPONSE)
         )
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
-            result = client.renders.create(
-                mockup_uuid="m-1", smart_objects=_SO, is_async=True
-            )
+            result = client.renders.create(mockup_uuid="m-1", smart_objects=_SO, is_async=True)
 
         assert isinstance(result, JobAccepted)
         assert result.job_id == "job-uuid-abc123"
@@ -77,14 +75,10 @@ class TestAsyncRender:
         assert body["is_async"] is True
 
     def test_is_async_402(self, mock_api: respx.MockRouter) -> None:
-        mock_api.post("/api/v1/renders").mock(
-            return_value=httpx.Response(402, json=ERROR_402)
-        )
+        mock_api.post("/api/v1/renders").mock(return_value=httpx.Response(402, json=ERROR_402))
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
             with pytest.raises(InsufficientCreditsError):
-                client.renders.create(
-                    mockup_uuid="m-1", smart_objects=_SO, is_async=True
-                )
+                client.renders.create(mockup_uuid="m-1", smart_objects=_SO, is_async=True)
 
 
 # ---------------------------------------------------------------------------
@@ -115,9 +109,7 @@ class TestJobs:
         assert job.credits_charged == 1
 
     def test_get_owner_scope_404(self, mock_api: respx.MockRouter) -> None:
-        mock_api.get("/api/v1/jobs/not-mine").mock(
-            return_value=httpx.Response(404, json=ERROR_404)
-        )
+        mock_api.get("/api/v1/jobs/not-mine").mock(return_value=httpx.Response(404, json=ERROR_404))
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
             with pytest.raises(NotFoundError):
                 client.jobs.get("not-mine")
@@ -186,9 +178,7 @@ class TestVideo:
             return_value=httpx.Response(202, json=MOCK_VIDEO_JOB_ACCEPTED_RESPONSE)
         )
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
-            client.renders.create_video(
-                mockup_uuid="m-1", smart_objects=_SO, duration_seconds=4
-            )
+            client.renders.create_video(mockup_uuid="m-1", smart_objects=_SO, duration_seconds=4)
         body = json.loads(route.calls.last.request.content)
         assert "advanced_model" not in body["video"]
         assert body["video"]["audio"] is False
@@ -357,9 +347,9 @@ class TestWebhookExtras:
         assert route.calls.last.request.url.params["limit"] == "50"
 
     def test_replay_failed(self, mock_api: respx.MockRouter) -> None:
-        route = mock_api.post(
-            "/api/v1/webhook-endpoints/wh-1/deliveries/replay-failed"
-        ).mock(return_value=httpx.Response(202, json={"status": "enqueued", "count": 3}))
+        route = mock_api.post("/api/v1/webhook-endpoints/wh-1/deliveries/replay-failed").mock(
+            return_value=httpx.Response(202, json={"status": "enqueued", "count": 3})
+        )
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
             client.webhook_endpoints.replay_failed("wh-1")
         assert len(route.calls) == 1
