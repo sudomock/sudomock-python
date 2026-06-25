@@ -683,7 +683,7 @@ class _AIResource:
         return TwoDMockup.model_validate(resp.json()["data"])
 
     def delete(self, mockup_id: str) -> None:
-        """Delete a 2D mockup (and its masks/quads/storage; free).
+        """Delete a 2D mockup and all of its associated data (free; zero credits).
 
         Raises:
             NotFoundError: If the 2D mockup does not exist.
