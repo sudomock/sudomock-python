@@ -7,7 +7,7 @@ added to the API do not break existing SDK versions.
 from __future__ import annotations
 
 from datetime import datetime  # noqa: TCH003 - Pydantic needs this at runtime
-from typing import Optional
+from typing import Any, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -201,6 +201,21 @@ class AIRender(_Base):
         return self.print_files[0].url
 
 
+class Quad(_Base):
+    """A printable four-point area on a 2D mockup."""
+
+    print_area_id: str
+    points: list[list[float]]
+    sort_order: int
+
+
+class TwoDPrintAreasUpdate(_Base):
+    """Updated geometry returned after replacing 2D print areas."""
+
+    mockup_id: str
+    print_areas: list[Quad] = Field(default_factory=list)
+
+
 class TwoDMockup(_Base):
     """A SudoAI 2D mockup (``GET /sudoai/2d-mockup/{id}`` / list).
 
@@ -215,6 +230,7 @@ class TwoDMockup(_Base):
     watermarked_source_url: Optional[str] = None
     source_width: Optional[int] = None
     source_height: Optional[int] = None
+    quads: list[Quad] = Field(default_factory=list)
     version: Optional[int] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
@@ -242,8 +258,8 @@ class JobAccepted(_Base):
     """Acknowledgement returned by a ``202 Accepted`` async submission.
 
     Returned by ``renders.create(..., is_async=True)``, ``psd.upload(...,
-    is_async=True)`` and ``renders.create_video(...)``. Poll for completion
-    with :meth:`jobs.get` (or :meth:`jobs.wait` / ``wait_for_job``) using
+    is_async=True)``, ``renders.create_video(...)``, and ``ai.create(...)``.
+    Poll for completion with :meth:`jobs.get` or :meth:`jobs.wait` using
     :attr:`job_id`.
     """
 
@@ -280,7 +296,7 @@ class Job(_Base):
     model: Optional[str] = None
     result_url: Optional[str] = None
     mockup_uuid: Optional[str] = None
-    error: Optional[str] = None
+    error: Optional[Union[str, dict[str, Any]]] = None
     # Real charge for the job. For credit/subscription jobs this is the
     # deducted credit count; for PAYG it is the billable credit count (NOT the
     # stored 0). The dollar amount lives in :attr:`payg`.
@@ -306,6 +322,17 @@ class Job(_Base):
     def failed(self) -> bool:
         """True if the job failed."""
         return self.status == "failed"
+
+    def failure_details(self) -> tuple[Optional[str], Optional[str]]:
+        """Return the machine-readable code and human-readable failure reason."""
+        if isinstance(self.error, dict):
+            error_code = self.error.get("error_code")
+            reason = self.error.get("message") or self.error.get("reason")
+            return (
+                error_code if isinstance(error_code, str) else None,
+                reason if isinstance(reason, str) else None,
+            )
+        return None, self.error
 
     @property
     def url(self) -> str:

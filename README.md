@@ -60,34 +60,33 @@ async def main():
 asyncio.run(main())
 ```
 
-## SudoAI 2D Rendering
+## 2D mockups via API
 
-Render artwork onto a **SudoAI 2D mockup** -- a flat product photo whose print
-areas were defined in the dashboard editor. List your 2D mockups, then render
-into their print areas (costs 5 credits per render).
+Create a 2D mockup from a product image, wait until its print areas are ready,
+then render your artwork. Creation costs 25 credits and rendering costs 5 credits.
+Unsuccessful creations are refunded automatically.
 
 ```python
 from sudomock import SudoMock
 
 client = SudoMock(api_key="sm_your_api_key")
 
-# Find a 2D mockup and its print areas
-two_d = client.ai.list()
-mockup = two_d.mockups[0]
+# Create and wait for the finished 2D mockup
+job = client.ai.create(
+    source_url="https://example.com/product.jpg",
+    name="Product Front",
+    idempotency_key="product-front-001",
+)
+mockup = client.ai.wait_for_2d_mockup(job.job_id)
 
 render = client.ai.render(
     mockup_uuid=mockup.mockup_id,
     print_areas=[{
-        "uuid": "print-area-uuid",                 # from the 2D mockup
+        "uuid": mockup.quads[0].print_area_id,
         "artwork_url": "https://example.com/your-design.png",
-        # or a flat color: "color": "#FF0000"
     }],
 )
 print(render.url)
-
-# Get / delete a 2D mockup
-client.ai.get(mockup.mockup_id)
-client.ai.delete(mockup.mockup_id)
 ```
 
 ## Async Rendering (Server-Side Queue)
@@ -302,6 +301,9 @@ client = SudoMock(
 
 | Method | Description |
 |--------|-------------|
+| `client.ai.create(source_url=, source_base64=, name=, idempotency_key=)` | Create a 2D mockup (25 credits, returns `JobAccepted`) |
+| `client.ai.wait_for_2d_mockup(job_id, poll_interval=2.0, timeout=180.0)` | Wait for creation and return the full 2D mockup |
+| `client.ai.update_2d_print_areas(mockup_id, print_areas)` | Replace a 2D mockup's print areas (free) |
 | `client.ai.render(mockup_uuid=, print_areas=, export_options=)` | Render artwork onto a 2D mockup (5 credits) |
 | `client.ai.list(limit=, offset=)` | List your 2D mockups |
 | `client.ai.get(mockup_id)` | Get a 2D mockup |

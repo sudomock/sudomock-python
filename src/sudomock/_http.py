@@ -145,6 +145,7 @@ class SyncTransport:
         *,
         params: Optional[dict[str, Any]] = None,
         json: Optional[dict[str, Any]] = None,
+        headers: Optional[dict[str, str]] = None,
         timeout: Optional[float] = None,
     ) -> httpx.Response:
         """Send an HTTP request with automatic retry on transient errors.
@@ -167,6 +168,7 @@ class SyncTransport:
                 path,
                 params=clean_params,
                 json=json,
+                headers=headers,
                 timeout=effective_timeout,
             )
             _raise_for_status(resp)
@@ -218,6 +220,7 @@ class AsyncTransport:
         *,
         params: Optional[dict[str, Any]] = None,
         json: Optional[dict[str, Any]] = None,
+        headers: Optional[dict[str, str]] = None,
         timeout: Optional[float] = None,
     ) -> httpx.Response:
         """Send an async HTTP request with automatic retry on transient errors."""
@@ -236,6 +239,7 @@ class AsyncTransport:
                 path,
                 params=clean_params,
                 json=json,
+                headers=headers,
                 timeout=effective_timeout,
             )
             _raise_for_status(resp)

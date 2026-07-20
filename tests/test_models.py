@@ -253,6 +253,22 @@ class TestJob:
         assert job.is_terminal
         assert job.failed
         assert job.error == "boom"
+        assert job.failure_details() == (None, "boom")
+
+    def test_failure_details_from_real_2d_payload(self) -> None:
+        job = Job(
+            status="failed",
+            error={
+                "error_code": "NOT_MOCKUPABLE",
+                "message": "The source image is not suitable for a 2D mockup",
+            },
+        )
+
+        assert job.failure_details() == (
+            "NOT_MOCKUPABLE",
+            "The source image is not suitable for a 2D mockup",
+        )
+        assert not {"error_code", "reason", "message"} & Job.model_fields.keys()
 
     def test_url_without_result_raises(self) -> None:
         job = Job(status="running")
