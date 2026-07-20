@@ -12,6 +12,8 @@ Hierarchy::
     +-- ValidationError          (422)
     +-- RateLimitError           (429)
     +-- ServerError              (500+)
+    +-- JobFailedError           (local -- terminal job failure)
+    +-- JobTimeoutError          (local -- job polling timeout)
     +-- WebhookVerificationError (local -- signature check)
 """
 
@@ -98,6 +100,33 @@ class RateLimitError(SudoMockError):
 
 class ServerError(SudoMockError):
     """Raised when the API returns an internal server error (HTTP 500+)."""
+
+
+class JobFailedError(SudoMockError):
+    """Raised when an async job finishes unsuccessfully."""
+
+    def __init__(
+        self,
+        job_id: str,
+        *,
+        error_code: Optional[str] = None,
+        reason: Optional[str] = None,
+    ) -> None:
+        code = f" ({error_code})" if error_code else ""
+        detail = reason or "The job did not complete successfully."
+        super().__init__(f"Job {job_id} failed{code}: {detail}")
+        self.job_id = job_id
+        self.error_code = error_code
+        self.reason = reason
+
+
+class JobTimeoutError(SudoMockError, TimeoutError):
+    """Raised when an async job does not finish within the wait timeout."""
+
+    def __init__(self, job_id: str, *, timeout: float) -> None:
+        super().__init__(f"Job {job_id} did not finish within {timeout}s")
+        self.job_id = job_id
+        self.timeout = timeout
 
 
 class WebhookVerificationError(SudoMockError):

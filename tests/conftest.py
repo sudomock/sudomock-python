@@ -122,6 +122,54 @@ MOCK_2D_MOCKUP_LIST_RESPONSE = {
 
 MOCK_2D_MOCKUP_DELETE_RESPONSE = {"data": {"deleted": True}, "success": True}
 
+MOCK_2D_MOCKUP_JOB_ACCEPTED_RESPONSE = {
+    "job_id": "2d-create-job-001",
+    "kind": "2d_create",
+    "status": "queued",
+    "status_url": "/api/v1/jobs/2d-create-job-001",
+}
+
+MOCK_2D_MOCKUP_JOB_QUEUED_RESPONSE = {
+    "job_id": "2d-create-job-001",
+    "kind": "2d_create",
+    "status": "queued",
+}
+
+MOCK_2D_MOCKUP_JOB_SUCCEEDED_RESPONSE = {
+    "job_id": "2d-create-job-001",
+    "kind": "2d_create",
+    "status": "succeeded",
+    "result_url": "/api/v1/sudoai/2d-mockup/2d-mockup-001",
+    "mockup_uuid": "2d-mockup-001",
+    "error": None,
+}
+
+MOCK_2D_MOCKUP_JOB_FAILED_RESPONSE = {
+    "job_id": "2d-create-job-001",
+    "kind": "2d_create",
+    "status": "failed",
+    "result_url": None,
+    "mockup_uuid": None,
+    "error": {
+        "error_code": "NOT_MOCKUPABLE",
+        "message": "The source image is not suitable for a 2D mockup",
+    },
+}
+
+MOCK_2D_PRINT_AREAS_UPDATE_RESPONSE = {
+    "data": {
+        "mockup_id": "2d-mockup-001",
+        "print_areas": [
+            {
+                "print_area_id": "pa-1",
+                "points": [[100, 100], [500, 100], [500, 500], [100, 500]],
+                "sort_order": 0,
+            }
+        ],
+    },
+    "success": True,
+}
+
 # Packages / pricing (GET /packages/plans|pricing) — {plans: [...]}.
 MOCK_PLANS_RESPONSE = {
     "plans": [

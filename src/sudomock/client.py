@@ -19,6 +19,7 @@ from __future__ import annotations
 import os
 import time
 from typing import Any, Optional, Union
+from uuid import uuid4
 
 from ._http import (
     DEFAULT_BASE_URL,
@@ -27,7 +28,7 @@ from ._http import (
     DEFAULT_TIMEOUT,
     SyncTransport,
 )
-from .exceptions import SudoMockError
+from .exceptions import JobFailedError, JobTimeoutError, SudoMockError
 from .models import (
     AccountInfo,
     AIRender,
@@ -40,6 +41,7 @@ from .models import (
     Render,
     TwoDMockup,
     TwoDMockupList,
+    TwoDPrintAreasUpdate,
     VideoOptions,
     WebhookDeliveryList,
     WebhookEndpoint,
@@ -304,7 +306,7 @@ class _RendersResource:
 
 
 class _JobsResource:
-    """Async job polling (for ``is_async`` renders, uploads, and video)."""
+    """Async job polling."""
 
     def __init__(self, transport: SyncTransport) -> None:
         self._transport = transport
@@ -320,7 +322,8 @@ class _JobsResource:
         """List your async jobs, newest first (keyset-paginated).
 
         Args:
-            kind: Filter by job kind, one of ``video`` | ``render`` | ``upload``.
+            kind: Filter by job kind: ``video``, ``render``, ``upload``, or
+                ``2d_create``.
             mockup_uuid: Filter by source mockup (raw-image videos excluded).
             limit: Page size, 1..50 (default server-side: 20).
             cursor: Opaque keyset cursor from a previous page's ``next_cursor``.
@@ -595,10 +598,113 @@ class _WebhookEndpointsResource:
 
 
 class _AIResource:
-    """SudoAI 2D-mockup operations (render, list, get, delete)."""
+    """SudoAI 2D-mockup operations."""
 
     def __init__(self, transport: SyncTransport) -> None:
         self._transport = transport
+
+    def create(
+        self,
+        *,
+        source_url: Optional[str] = None,
+        source_base64: Optional[str] = None,
+        name: Optional[str] = None,
+        idempotency_key: Optional[str] = None,
+    ) -> JobAccepted:
+        """Create a 2D mockup from a source image (costs 25 credits).
+
+        Exactly one source must be supplied. The request returns immediately;
+        use :meth:`wait_for_2d_mockup` to wait for the finished mockup.
+
+        Args:
+            source_url: Public HTTPS URL of the source image.
+            source_base64: Base64-encoded source image.
+            name: Optional mockup name.
+            idempotency_key: Optional key for safely retrying this submission. A
+                UUID is generated when omitted.
+
+        Returns:
+            :class:`JobAccepted` with ``job_id`` and ``status_url``.
+
+        Raises:
+            ValueError: If both or neither source inputs are supplied.
+            InsufficientCreditsError: If fewer than 25 credits remain.
+        """
+        if bool(source_url) == bool(source_base64):
+            raise ValueError("create requires exactly one of source_url or source_base64")
+
+        body: dict[str, Any] = {
+            "source_url" if source_url else "source_base64": source_url or source_base64
+        }
+        if name is not None:
+            body["name"] = name
+        if idempotency_key is None:
+            idempotency_key = str(uuid4())
+
+        resp = self._transport.request(
+            "POST",
+            "/api/v1/sudoai/2d-mockups",
+            json=body,
+            headers={"Idempotency-Key": idempotency_key},
+        )
+        return JobAccepted.model_validate(resp.json())
+
+    def wait_for_2d_mockup(
+        self,
+        job_id: str,
+        *,
+        poll_interval: float = 2.0,
+        timeout: float = 180.0,
+    ) -> TwoDMockup:
+        """Wait for a 2D-mockup creation job and return its full details.
+
+        Raises:
+            JobFailedError: If creation fails. The exception exposes the
+                ``error_code`` and the human-readable ``reason`` returned by the API.
+            JobTimeoutError: If creation does not finish within ``timeout``.
+        """
+        try:
+            job = _JobsResource(self._transport).wait(
+                job_id,
+                poll_interval=poll_interval,
+                timeout=timeout,
+            )
+        except TimeoutError as exc:
+            raise JobTimeoutError(job_id, timeout=timeout) from exc
+
+        if job.kind not in (None, "2d_create"):
+            raise SudoMockError(f"Job {job_id} has kind {job.kind!r}; expected '2d_create'")
+        if job.failed:
+            error_code, reason = job.failure_details()
+            raise JobFailedError(
+                job_id,
+                error_code=error_code,
+                reason=reason,
+            )
+        if not job.mockup_uuid:
+            raise SudoMockError(f"Job {job_id} succeeded without a mockup UUID")
+        return self.get(job.mockup_uuid)
+
+    def update_2d_print_areas(
+        self,
+        mockup_id: str,
+        print_areas: list[dict[str, Any]],
+    ) -> TwoDPrintAreasUpdate:
+        """Replace a 2D mockup's print areas (free; zero credits).
+
+        Args:
+            mockup_id: 2D mockup identifier.
+            print_areas: One to eight print areas, each with four ``[x, y]`` points.
+
+        Returns:
+            The updated print-area geometry.
+        """
+        resp = self._transport.request(
+            "PUT",
+            f"/api/v1/sudoai/2d-mockup/{mockup_id}/print-areas",
+            json={"print_areas": print_areas},
+        )
+        return TwoDPrintAreasUpdate.model_validate(resp.json()["data"])
 
     def render(
         self,
