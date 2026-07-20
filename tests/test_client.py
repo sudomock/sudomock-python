@@ -387,9 +387,7 @@ class TestAI:
         assert len(job_route.calls) == 2
         assert len(detail_route.calls) == 1
 
-    def test_ai_wait_for_2d_mockup_rejects_wrong_job_kind(
-        self, mock_api: respx.MockRouter
-    ) -> None:
+    def test_ai_wait_for_2d_mockup_rejects_wrong_job_kind(self, mock_api: respx.MockRouter) -> None:
         mock_api.get("/api/v1/jobs/video-job-001").mock(
             return_value=httpx.Response(
                 200,
@@ -405,9 +403,7 @@ class TestAI:
             with pytest.raises(SudoMockError, match="expected '2d_create'"):
                 client.ai.wait_for_2d_mockup("video-job-001", poll_interval=0.0)
 
-    def test_ai_wait_for_2d_mockup_missing_mockup_uuid(
-        self, mock_api: respx.MockRouter
-    ) -> None:
+    def test_ai_wait_for_2d_mockup_missing_mockup_uuid(self, mock_api: respx.MockRouter) -> None:
         mock_api.get("/api/v1/jobs/2d-create-job-001").mock(
             return_value=httpx.Response(
                 200,
