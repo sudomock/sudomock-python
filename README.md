@@ -86,6 +86,19 @@ render = client.ai.render(
     }],
 )
 print(render.url)
+
+# Async variant: submit to the server queue and poll (returns a JobAccepted)
+job = client.ai.render(
+    mockup_uuid=mockup.mockup_id,
+    print_areas=[{
+        "uuid": mockup.quads[0].print_area_id,
+        "artwork_url": "https://example.com/your-design.png",
+    }],
+    is_async=True,
+)
+result = client.jobs.wait(job.job_id)   # terminal Job carries result_url
+if result.succeeded:
+    print(result.url)
 ```
 
 ## Async Rendering (Server-Side Queue)
@@ -303,7 +316,7 @@ client = SudoMock(
 | `client.ai.create(source_url=, source_base64=, name=, print_areas=, is_async=False, idempotency_key=)` | Create a 2D mockup (25 credits; sync `TwoDMockup` by default, or `JobAccepted` when `is_async=True`) |
 | `client.ai.wait_for_2d_mockup(job_id, poll_interval=2.0, timeout=180.0)` | Wait for an `is_async=True` creation and return the full 2D mockup |
 | `client.ai.update_2d_print_areas(mockup_id, print_areas)` | Replace a 2D mockup's print areas (free) |
-| `client.ai.render(mockup_uuid=, print_areas=, export_options=)` | Render artwork onto a 2D mockup (5 credits; returns `AIRender` with `render_uuid`) |
+| `client.ai.render(mockup_uuid=, print_areas=, export_options=, is_async=False)` | Render artwork onto a 2D mockup (5 credits; sync `AIRender` with `render_uuid` by default, or `JobAccepted` when `is_async=True`) |
 | `client.ai.list(limit=, offset=)` | List your 2D mockups |
 | `client.ai.get(mockup_id)` | Get a 2D mockup |
 | `client.ai.delete(mockup_id)` | Delete a 2D mockup |

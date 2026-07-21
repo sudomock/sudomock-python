@@ -42,6 +42,7 @@ from .conftest import (
     MOCK_2D_MOCKUP_JOB_QUEUED_RESPONSE,
     MOCK_2D_MOCKUP_JOB_SUCCEEDED_RESPONSE,
     MOCK_2D_PRINT_AREAS_UPDATE_RESPONSE,
+    MOCK_AI_RENDER_JOB_ACCEPTED_RESPONSE,
     MOCK_AI_RENDER_RESPONSE,
     MOCK_ME_RESPONSE,
     MOCK_MOCKUP,
@@ -189,6 +190,29 @@ class TestAsyncAI:
         # Real contract: mockup id is in the PATH, body is print_areas[] only.
         assert "mockup_uuid" not in body
         assert body["print_areas"][0]["uuid"] == "pa-1"
+
+    async def test_ai_render_async(self, mock_api: respx.MockRouter) -> None:
+        route = mock_api.post("/api/v1/sudoai/2d-mockups/2d-mockup-001/render").mock(
+            return_value=httpx.Response(202, json=MOCK_AI_RENDER_JOB_ACCEPTED_RESPONSE)
+        )
+        async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
+            result = await client.ai.render(
+                mockup_uuid="2d-mockup-001",
+                print_areas=[{"uuid": "pa-1", "artwork_url": "https://x.com/d.png"}],
+                is_async=True,
+            )
+
+        # Async submit: 202 returns a JobAccepted (job envelope), NOT an AIRender.
+        assert isinstance(result, JobAccepted)
+        assert result.job_id == "2d-render-job-001"
+        assert result.kind == "2d_render"
+        assert result.status == "queued"
+        assert result.status_url == "/api/v1/jobs/2d-render-job-001"
+
+        body = json.loads(route.calls.last.request.content)
+        assert body["is_async"] is True
+        assert body["print_areas"][0]["uuid"] == "pa-1"
+        assert "mockup_uuid" not in body
 
     async def test_ai_create(self, mock_api: respx.MockRouter) -> None:
         route = mock_api.post("/api/v1/sudoai/2d-mockups").mock(

@@ -5,6 +5,17 @@ All notable changes to the `sudomock` Python SDK are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2026-07-21
+
+### Added
+- `ai.render()` accepts an optional `is_async` flag (mirrors `ai.create()`).
+  Default `False` keeps the synchronous `200` behaviour (returns the finished
+  `AIRender`). Pass `is_async=True` to submit to the server-side queue and get a
+  `JobAccepted` (`202`, `kind="2d_render"`) to poll with `jobs.get()` /
+  `jobs.wait()`; the terminal `Job` carries `result_url`. Additive and
+  non-breaking — the mockup id stays in the path and existing call sites are
+  unaffected.
+
 ## [0.5.0] - 2026-07-21
 
 ### Changed (BREAKING)

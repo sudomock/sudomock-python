@@ -82,6 +82,16 @@ MOCK_AI_RENDER_RESPONSE = {
     },
 }
 
+# SudoAI 2D render async submit (POST /sudoai/2d-mockups/{id}/render with
+# is_async=true) returns a BARE 202 body {job_id, kind:"2d_render", status,
+# status_url} — no {success, data} envelope.
+MOCK_AI_RENDER_JOB_ACCEPTED_RESPONSE = {
+    "job_id": "2d-render-job-001",
+    "kind": "2d_render",
+    "status": "queued",
+    "status_url": "/api/v1/jobs/2d-render-job-001",
+}
+
 # 2D mockup detail (GET /sudoai/2d-mockups/{id}) — has quads (with optional name).
 MOCK_2D_MOCKUP = {
     "mockup_id": "2d-mockup-001",
