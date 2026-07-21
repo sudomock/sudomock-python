@@ -66,7 +66,8 @@ MOCK_RENDER_RESPONSE = {
 }
 
 # SudoAI 2D render: print_files carry export_path / duration_ms / export_format
-# (NO smart_object_uuid). Matches POST /sudoai/2d-mockup/render.
+# (NO smart_object_uuid), plus a sibling render_uuid. Matches
+# POST /sudoai/2d-mockups/{id}/render.
 MOCK_AI_RENDER_RESPONSE = {
     "success": True,
     "data": {
@@ -76,11 +77,12 @@ MOCK_AI_RENDER_RESPONSE = {
                 "duration_ms": 412,
                 "export_format": "webp",
             }
-        ]
+        ],
+        "render_uuid": "render-2d-001",
     },
 }
 
-# 2D mockup detail (GET /sudoai/2d-mockup/{id}) — has quads.
+# 2D mockup detail (GET /sudoai/2d-mockups/{id}) — has quads (with optional name).
 MOCK_2D_MOCKUP = {
     "mockup_id": "2d-mockup-001",
     "name": "Flat Tee Front",
@@ -89,13 +91,17 @@ MOCK_2D_MOCKUP = {
     "watermarked_source_url": "https://cdn.sudomock.com/2d/src.png",
     "source_width": 2000,
     "source_height": 2000,
-    "quads": [{"print_area_id": "pa-1", "points": [], "sort_order": 0}],
+    "quads": [{"print_area_id": "pa-1", "points": [], "sort_order": 0, "name": "Front"}],
     "version": 1,
     "created_at": "2026-06-21T10:00:00Z",
     "updated_at": "2026-06-21T10:00:00Z",
 }
 
 MOCK_2D_MOCKUP_GET_RESPONSE = {"data": MOCK_2D_MOCKUP, "success": True}
+
+# Sync create (POST /sudoai/2d-mockups, default is_async=false) returns 201 with
+# the full mockup in the {success, data} envelope — same shape as the detail GET.
+MOCK_2D_MOCKUP_CREATE_RESPONSE = MOCK_2D_MOCKUP_GET_RESPONSE
 
 # 2D mockup list (GET /sudoai/2d-mockups) — data array + sibling pagination.
 MOCK_2D_MOCKUP_LIST_RESPONSE = {
@@ -139,7 +145,7 @@ MOCK_2D_MOCKUP_JOB_SUCCEEDED_RESPONSE = {
     "job_id": "2d-create-job-001",
     "kind": "2d_create",
     "status": "succeeded",
-    "result_url": "/api/v1/sudoai/2d-mockup/2d-mockup-001",
+    "result_url": "/api/v1/sudoai/2d-mockups/2d-mockup-001",
     "mockup_uuid": "2d-mockup-001",
     "error": None,
 }
@@ -164,6 +170,7 @@ MOCK_2D_PRINT_AREAS_UPDATE_RESPONSE = {
                 "print_area_id": "pa-1",
                 "points": [[100, 100], [500, 100], [500, 500], [100, 500]],
                 "sort_order": 0,
+                "name": "Front",
             }
         ],
     },

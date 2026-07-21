@@ -172,7 +172,7 @@ class TestAsyncRenders:
 
 class TestAsyncAI:
     async def test_ai_render(self, mock_api: respx.MockRouter) -> None:
-        mock_api.post("/api/v1/sudoai/2d-mockup/render").mock(
+        route = mock_api.post("/api/v1/sudoai/2d-mockups/2d-mockup-001/render").mock(
             return_value=httpx.Response(200, json=MOCK_AI_RENDER_RESPONSE)
         )
         async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
@@ -183,16 +183,45 @@ class TestAsyncAI:
 
         assert isinstance(result, AIRender)
         assert "ai-renders" in result.url
+        assert result.render_uuid == "render-2d-001"
+
+        body = json.loads(route.calls.last.request.content)
+        # Real contract: mockup id is in the PATH, body is print_areas[] only.
+        assert "mockup_uuid" not in body
+        assert body["print_areas"][0]["uuid"] == "pa-1"
 
     async def test_ai_create(self, mock_api: respx.MockRouter) -> None:
         route = mock_api.post("/api/v1/sudoai/2d-mockups").mock(
-            return_value=httpx.Response(202, json=MOCK_2D_MOCKUP_JOB_ACCEPTED_RESPONSE)
+            return_value=httpx.Response(201, json=MOCK_2D_MOCKUP_GET_RESPONSE)
         )
         async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
             result = await client.ai.create(
                 source_url="https://example.com/product.jpg",
                 name="Product Front",
                 idempotency_key="create-2d-001",
+            )
+
+        # Sync default: 201 returns the full mockup, NOT a job.
+        assert isinstance(result, TwoDMockup)
+        assert result.mockup_id == "2d-mockup-001"
+        assert result.status == "ready"
+        assert result.quads[0].print_area_id == "pa-1"
+        assert result.quads[0].name == "Front"
+        assert json.loads(route.calls.last.request.content) == {
+            "source_url": "https://example.com/product.jpg",
+            "name": "Product Front",
+        }
+        assert route.calls.last.request.headers["idempotency-key"] == "create-2d-001"
+        assert route.calls.last.request.headers["x-api-key"] == TEST_API_KEY
+
+    async def test_ai_create_async(self, mock_api: respx.MockRouter) -> None:
+        route = mock_api.post("/api/v1/sudoai/2d-mockups").mock(
+            return_value=httpx.Response(202, json=MOCK_2D_MOCKUP_JOB_ACCEPTED_RESPONSE)
+        )
+        async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
+            result = await client.ai.create(
+                source_url="https://example.com/product.jpg",
+                is_async=True,
             )
 
         assert isinstance(result, JobAccepted)
@@ -202,10 +231,8 @@ class TestAsyncAI:
         assert result.status_url == "/api/v1/jobs/2d-create-job-001"
         assert json.loads(route.calls.last.request.content) == {
             "source_url": "https://example.com/product.jpg",
-            "name": "Product Front",
+            "is_async": True,
         }
-        assert route.calls.last.request.headers["idempotency-key"] == "create-2d-001"
-        assert route.calls.last.request.headers["x-api-key"] == TEST_API_KEY
 
     async def test_ai_create_base64_generates_stable_idempotency_key(
         self, mock_api: respx.MockRouter
@@ -260,7 +287,7 @@ class TestAsyncAI:
             httpx.Response(200, json=MOCK_2D_MOCKUP_JOB_QUEUED_RESPONSE),
             httpx.Response(200, json=MOCK_2D_MOCKUP_JOB_SUCCEEDED_RESPONSE),
         ]
-        detail_route = mock_api.get("/api/v1/sudoai/2d-mockup/2d-mockup-001").mock(
+        detail_route = mock_api.get("/api/v1/sudoai/2d-mockups/2d-mockup-001").mock(
             return_value=httpx.Response(200, json=MOCK_2D_MOCKUP_GET_RESPONSE)
         )
 
@@ -338,7 +365,7 @@ class TestAsyncAI:
         assert exc_info.value.job_id == "2d-create-job-001"
 
     async def test_ai_update_2d_print_areas(self, mock_api: respx.MockRouter) -> None:
-        route = mock_api.put("/api/v1/sudoai/2d-mockup/2d-mockup-001/print-areas").mock(
+        route = mock_api.put("/api/v1/sudoai/2d-mockups/2d-mockup-001/print-areas").mock(
             return_value=httpx.Response(200, json=MOCK_2D_PRINT_AREAS_UPDATE_RESPONSE)
         )
         print_areas = [{"points": [[100, 100], [500, 100], [500, 500], [100, 500]]}]
