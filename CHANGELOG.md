@@ -5,6 +5,32 @@ All notable changes to the `sudomock` Python SDK are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-07-21
+
+### Changed (BREAKING)
+- `ai.create()` is now **synchronous by default**: it returns the finished
+  `TwoDMockup` from the `201` response instead of always returning a
+  `JobAccepted`. Pass `is_async=True` to submit to the server-side queue and get
+  a `JobAccepted` (`202`) to poll with `wait_for_2d_mockup()`. Callers that
+  relied on `create()` always returning a job must either read the returned
+  `TwoDMockup` directly or opt in with `is_async=True`.
+- 2D mockup endpoints moved to canonical **plural** paths: `get`, `delete`,
+  `update_2d_print_areas`, and `render` now target `/api/v1/sudoai/2d-mockups/...`
+  (the singular `/2d-mockup/...` paths are gone). This is a hard break on
+  `0.4.1`, whose transport does not follow redirects.
+- `ai.render()` now takes the mockup id in the **path**
+  (`/2d-mockups/{mockup_uuid}/render`); `mockup_uuid` is no longer sent in the
+  request body. The render call signature (`mockup_uuid=`, `print_areas=`,
+  `export_options=`) is unchanged.
+
+### Added
+- `ai.create()` accepts an optional `print_areas` seed (four-point quads, each
+  with an optional `name`).
+- `Quad.name` -- print areas can now carry a human-readable name (from
+  create/get/list `quads` and `update_2d_print_areas`).
+- `AIRender.render_uuid` -- the render transaction id is now surfaced (a sibling
+  of `print_files` in the render `data` envelope).
+
 ## [0.3.0] - 2026-06-24
 
 ### Added
