@@ -185,13 +185,16 @@ class Render(_Base):
 
 
 class AIRender(_Base):
-    """Result of a SudoAI 2D-mockup render (``POST /sudoai/2d-mockup/render``).
+    """Result of a SudoAI 2D-mockup render (``POST /sudoai/2d-mockups/{id}/render``).
 
     The 2D-render ``print_files`` carry ``export_path`` / ``duration_ms`` /
-    ``export_format`` (no ``smart_object_uuid``).
+    ``export_format`` (no ``smart_object_uuid``). The render transaction id is
+    exposed as ``render_uuid`` (a sibling of ``print_files`` in the ``data``
+    envelope).
     """
 
     print_files: list[PrintFile] = Field(default_factory=list)
+    render_uuid: Optional[str] = None
 
     @property
     def url(self) -> str:
@@ -207,6 +210,7 @@ class Quad(_Base):
     print_area_id: str
     points: list[list[float]]
     sort_order: int
+    name: Optional[str] = None
 
 
 class TwoDPrintAreasUpdate(_Base):
@@ -217,7 +221,7 @@ class TwoDPrintAreasUpdate(_Base):
 
 
 class TwoDMockup(_Base):
-    """A SudoAI 2D mockup (``GET /sudoai/2d-mockup/{id}`` / list).
+    """A SudoAI 2D mockup (``GET /sudoai/2d-mockups/{id}`` / list).
 
     The detail endpoint returns ``quads``; the list endpoint returns
     ``print_areas``. Both are accepted via ``extra='allow'``.
@@ -258,9 +262,9 @@ class JobAccepted(_Base):
     """Acknowledgement returned by a ``202 Accepted`` async submission.
 
     Returned by ``renders.create(..., is_async=True)``, ``psd.upload(...,
-    is_async=True)``, ``renders.create_video(...)``, and ``ai.create(...)``.
-    Poll for completion with :meth:`jobs.get` or :meth:`jobs.wait` using
-    :attr:`job_id`.
+    is_async=True)``, ``renders.create_video(...)``, and ``ai.create(...,
+    is_async=True)``. Poll for completion with :meth:`jobs.get` or
+    :meth:`jobs.wait` using :attr:`job_id`.
     """
 
     job_id: str

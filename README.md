@@ -2,7 +2,7 @@
 
 Official Python client for the [SudoMock](https://sudomock.com) Mockup Generator API.
 
-Generate photorealistic product mockups from PSD templates or SudoAI 2D mockups -- all from your Python code.
+Generate photorealistic product mockups from PSD templates or 2D mockups -- all from your Python code.
 
 [![PyPI](https://img.shields.io/pypi/v/sudomock)](https://pypi.org/project/sudomock/)
 [![Python](https://img.shields.io/pypi/pyversions/sudomock)](https://pypi.org/project/sudomock/)
@@ -71,13 +71,12 @@ from sudomock import SudoMock
 
 client = SudoMock(api_key="sm_your_api_key")
 
-# Create and wait for the finished 2D mockup
-job = client.ai.create(
+# Create the 2D mockup (synchronous by default -- returns the finished mockup)
+mockup = client.ai.create(
     source_url="https://example.com/product.jpg",
     name="Product Front",
     idempotency_key="product-front-001",
 )
-mockup = client.ai.wait_for_2d_mockup(job.job_id)
 
 render = client.ai.render(
     mockup_uuid=mockup.mockup_id,
@@ -297,14 +296,14 @@ client = SudoMock(
 |--------|-------------|
 | `client.psd.upload(url=, name=None, is_async=False)` | Upload a PSD by URL (free; sync `Mockup` or `JobAccepted`) |
 
-### SudoAI 2D Mockups
+### 2D Mockups
 
 | Method | Description |
 |--------|-------------|
-| `client.ai.create(source_url=, source_base64=, name=, idempotency_key=)` | Create a 2D mockup (25 credits, returns `JobAccepted`) |
-| `client.ai.wait_for_2d_mockup(job_id, poll_interval=2.0, timeout=180.0)` | Wait for creation and return the full 2D mockup |
+| `client.ai.create(source_url=, source_base64=, name=, print_areas=, is_async=False, idempotency_key=)` | Create a 2D mockup (25 credits; sync `TwoDMockup` by default, or `JobAccepted` when `is_async=True`) |
+| `client.ai.wait_for_2d_mockup(job_id, poll_interval=2.0, timeout=180.0)` | Wait for an `is_async=True` creation and return the full 2D mockup |
 | `client.ai.update_2d_print_areas(mockup_id, print_areas)` | Replace a 2D mockup's print areas (free) |
-| `client.ai.render(mockup_uuid=, print_areas=, export_options=)` | Render artwork onto a 2D mockup (5 credits) |
+| `client.ai.render(mockup_uuid=, print_areas=, export_options=)` | Render artwork onto a 2D mockup (5 credits; returns `AIRender` with `render_uuid`) |
 | `client.ai.list(limit=, offset=)` | List your 2D mockups |
 | `client.ai.get(mockup_id)` | Get a 2D mockup |
 | `client.ai.delete(mockup_id)` | Delete a 2D mockup |

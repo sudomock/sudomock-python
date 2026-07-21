@@ -609,22 +609,32 @@ class _AIResource:
         source_url: Optional[str] = None,
         source_base64: Optional[str] = None,
         name: Optional[str] = None,
+        print_areas: Optional[list[dict[str, Any]]] = None,
+        is_async: bool = False,
         idempotency_key: Optional[str] = None,
-    ) -> JobAccepted:
+    ) -> Union[TwoDMockup, JobAccepted]:
         """Create a 2D mockup from a source image (costs 25 credits).
 
-        Exactly one source must be supplied. The request returns immediately;
-        use :meth:`wait_for_2d_mockup` to wait for the finished mockup.
+        Exactly one source must be supplied. By default the mockup is created
+        synchronously and returned in full (HTTP 201). Pass ``is_async=True`` to
+        submit to the async queue and get a :class:`JobAccepted` (HTTP 202) to
+        poll with :meth:`wait_for_2d_mockup`.
 
         Args:
             source_url: Public HTTPS URL of the source image.
             source_base64: Base64-encoded source image.
             name: Optional mockup name.
+            print_areas: Optional seed print areas, each a dict of four
+                ``[x, y]`` points with an optional ``name``.
+            is_async: If ``True``, submit to the async queue and return a
+                :class:`JobAccepted` (HTTP 202) immediately. Defaults to
+                ``False`` (synchronous 201 + full mockup).
             idempotency_key: Optional key for safely retrying this submission. A
                 UUID is generated when omitted.
 
         Returns:
-            :class:`JobAccepted` with ``job_id`` and ``status_url``.
+            :class:`TwoDMockup` (synchronous default), or :class:`JobAccepted`
+            with ``job_id`` and ``status_url`` when ``is_async=True``.
 
         Raises:
             ValueError: If both or neither source inputs are supplied.
@@ -638,6 +648,10 @@ class _AIResource:
         }
         if name is not None:
             body["name"] = name
+        if print_areas is not None:
+            body["print_areas"] = print_areas
+        if is_async:
+            body["is_async"] = True
         if idempotency_key is None:
             idempotency_key = str(uuid4())
 
@@ -647,7 +661,12 @@ class _AIResource:
             json=body,
             headers={"Idempotency-Key": idempotency_key},
         )
-        return JobAccepted.model_validate(resp.json())
+        if is_async or resp.status_code == 202:
+            # Async submit (202) returns a BARE body {job_id, kind, status,
+            # status_url} — no {success, data} envelope.
+            return JobAccepted.model_validate(resp.json())
+        # Sync default (201) returns the full mockup in a {success, data} envelope.
+        return TwoDMockup.model_validate(resp.json()["data"])
 
     def wait_for_2d_mockup(
         self,
@@ -694,14 +713,15 @@ class _AIResource:
 
         Args:
             mockup_id: 2D mockup identifier.
-            print_areas: One to eight print areas, each with four ``[x, y]`` points.
+            print_areas: One to eight print areas, each with four ``[x, y]``
+                points and an optional ``name``.
 
         Returns:
             The updated print-area geometry.
         """
         resp = self._transport.request(
             "PUT",
-            f"/api/v1/sudoai/2d-mockup/{mockup_id}/print-areas",
+            f"/api/v1/sudoai/2d-mockups/{mockup_id}/print-areas",
             json={"print_areas": print_areas},
         )
         return TwoDPrintAreasUpdate.model_validate(resp.json()["data"])
@@ -719,15 +739,16 @@ class _AIResource:
             mockup_uuid: UUID of a previously-created 2D mockup (see
                 :meth:`list` / :meth:`get`).
             print_areas: One or more print-area configs. Each is a dict with a
-                required ``uuid`` plus ``artwork_url`` and/or ``color`` (hex),
-                and optional ``adjustments`` / ``placement``. At least one of
-                ``artwork_url`` or ``color`` must be supplied per area.
+                required ``uuid`` (the ``print_area_id`` from create/get) plus
+                ``artwork_url`` and/or ``color`` (hex), and optional
+                ``adjustments`` / ``placement``. At least one of ``artwork_url``
+                or ``color`` must be supplied per area.
             export_options: Export settings (``image_format``, ``image_size``,
                 ``quality``, ``dpi``).
 
         Returns:
-            :class:`AIRender` with ``print_files`` and a convenience ``.url``
-            property.
+            :class:`AIRender` with ``print_files``, ``render_uuid`` and a
+            convenience ``.url`` property.
 
         Raises:
             InsufficientCreditsError: If fewer than 5 credits remain.
@@ -735,7 +756,6 @@ class _AIResource:
             ValidationError: If ``print_areas`` is empty or malformed.
         """
         body: dict[str, Any] = {
-            "mockup_uuid": mockup_uuid,
             "print_areas": print_areas,
         }
         if export_options is not None:
@@ -743,7 +763,7 @@ class _AIResource:
 
         resp = self._transport.request(
             "POST",
-            "/api/v1/sudoai/2d-mockup/render",
+            f"/api/v1/sudoai/2d-mockups/{mockup_uuid}/render",
             json=body,
             timeout=self._transport._render_timeout,
         )
@@ -785,7 +805,7 @@ class _AIResource:
         Raises:
             NotFoundError: If the 2D mockup does not exist.
         """
-        resp = self._transport.request("GET", f"/api/v1/sudoai/2d-mockup/{mockup_id}")
+        resp = self._transport.request("GET", f"/api/v1/sudoai/2d-mockups/{mockup_id}")
         return TwoDMockup.model_validate(resp.json()["data"])
 
     def delete(self, mockup_id: str) -> None:
@@ -794,7 +814,7 @@ class _AIResource:
         Raises:
             NotFoundError: If the 2D mockup does not exist.
         """
-        self._transport.request("DELETE", f"/api/v1/sudoai/2d-mockup/{mockup_id}")
+        self._transport.request("DELETE", f"/api/v1/sudoai/2d-mockups/{mockup_id}")
 
 
 class _AccountResource:
