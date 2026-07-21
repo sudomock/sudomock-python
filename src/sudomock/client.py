@@ -732,8 +732,15 @@ class _AIResource:
         mockup_uuid: str,
         print_areas: list[dict[str, Any]],
         export_options: Optional[dict[str, Any]] = None,
-    ) -> AIRender:
+        is_async: bool = False,
+    ) -> Union[AIRender, JobAccepted]:
         """Render artwork onto an existing 2D mockup (costs 5 credits).
+
+        By default the render runs synchronously and the finished
+        :class:`AIRender` is returned from the ``200`` response. Pass
+        ``is_async=True`` to submit to the server-side queue and get a
+        :class:`JobAccepted` (HTTP 202) to poll with :meth:`SudoMock.jobs.get`
+        or :meth:`SudoMock.jobs.wait`; the terminal job carries ``result_url``.
 
         Args:
             mockup_uuid: UUID of a previously-created 2D mockup (see
@@ -745,10 +752,15 @@ class _AIResource:
                 or ``color`` must be supplied per area.
             export_options: Export settings (``image_format``, ``image_size``,
                 ``quality``, ``dpi``).
+            is_async: If ``True``, submit to the async queue and return a
+                :class:`JobAccepted` (HTTP 202) immediately. Defaults to
+                ``False`` (synchronous 200 + full render).
 
         Returns:
-            :class:`AIRender` with ``print_files``, ``render_uuid`` and a
-            convenience ``.url`` property.
+            :class:`AIRender` (synchronous default) with ``print_files``,
+            ``render_uuid`` and a convenience ``.url`` property, or
+            :class:`JobAccepted` with ``job_id`` and ``status_url`` when
+            ``is_async=True``.
 
         Raises:
             InsufficientCreditsError: If fewer than 5 credits remain.
@@ -760,6 +772,8 @@ class _AIResource:
         }
         if export_options is not None:
             body["export_options"] = export_options
+        if is_async:
+            body["is_async"] = True
 
         resp = self._transport.request(
             "POST",
@@ -767,8 +781,12 @@ class _AIResource:
             json=body,
             timeout=self._transport._render_timeout,
         )
-        data = resp.json()["data"]
-        return AIRender.model_validate(data)
+        if is_async or resp.status_code == 202:
+            # Async submit (202) returns a BARE body {job_id, kind:"2d_render",
+            # status, status_url} — no {success, data} envelope. The sync path
+            # still wraps in {success, data}.
+            return JobAccepted.model_validate(resp.json())
+        return AIRender.model_validate(resp.json()["data"])
 
     def list(
         self,
