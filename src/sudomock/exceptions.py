@@ -28,6 +28,7 @@ class SudoMockError(Exception):
     Attributes:
         message: Human-readable error description.
         status_code: HTTP status code that triggered this error, if any.
+        error_code: Machine-readable code returned by the API, if any.
         body: Raw response body (parsed JSON or string), if available.
     """
 
@@ -36,11 +37,13 @@ class SudoMockError(Exception):
         message: str,
         *,
         status_code: Optional[int] = None,
+        error_code: Optional[str] = None,
         body: Optional[Any] = None,
     ) -> None:
         super().__init__(message)
         self.message = message
         self.status_code = status_code
+        self.error_code = error_code
         self.body = body
 
     def __repr__(self) -> str:
@@ -64,10 +67,11 @@ class InsufficientCreditsError(SudoMockError):
         message: str,
         *,
         status_code: Optional[int] = None,
+        error_code: Optional[str] = None,
         body: Optional[Any] = None,
         credits_reset_at: Optional[str] = None,
     ) -> None:
-        super().__init__(message, status_code=status_code, body=body)
+        super().__init__(message, status_code=status_code, error_code=error_code, body=body)
         self.credits_reset_at = credits_reset_at
 
 
@@ -91,10 +95,11 @@ class RateLimitError(SudoMockError):
         message: str,
         *,
         status_code: Optional[int] = None,
+        error_code: Optional[str] = None,
         body: Optional[Any] = None,
         retry_after: Optional[float] = None,
     ) -> None:
-        super().__init__(message, status_code=status_code, body=body)
+        super().__init__(message, status_code=status_code, error_code=error_code, body=body)
         self.retry_after = retry_after
 
 

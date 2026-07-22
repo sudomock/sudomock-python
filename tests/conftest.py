@@ -32,6 +32,26 @@ MOCK_MOCKUP = {
             "position": {"x": 100, "y": 200, "width": 800, "height": 600},
         }
     ],
+    "text_layers": [
+        {
+            "uuid": "66666666-7777-8888-9999-000000000000",
+            "name": "Customer Name",
+            "text_content": "Isabella",
+            "font_postscript_name": "Montserrat-Bold",
+            "font_size": 120,
+            "color": "#FFFFFF",
+            "font_available": True,
+            "is_editable": True,
+            "segment_count": 1,
+            "segments": None,
+            "visible": True,
+            "has_stroke_effect": True,
+            "stroke_count": 2,
+            "has_color_overlay": False,
+            "has_clipped_artwork": False,
+            "suggested_edit_together": None,
+        }
+    ],
     "width": 2000,
     "height": 2400,
     "thumbnail_url": "https://cdn.sudomock.com/thumbnails/aaa.png",
@@ -63,6 +83,34 @@ MOCK_RENDER_RESPONSE = {
             }
         ]
     },
+}
+
+MOCK_TEXT_RENDER_RESPONSE = {
+    "success": True,
+    "data": {
+        "print_files": [
+            {
+                "export_path": "https://cdn.sudomock.com/renders/name.webp",
+                "smart_object_uuid": "",
+            }
+        ],
+        "render_uuid": "77777777-8888-9999-aaaa-bbbbbbbbbbbb",
+        "text_layers": [
+            {
+                "uuid": "66666666-7777-8888-9999-000000000000",
+                "name": "Customer Name",
+                "requested_font": "Montserrat-Bold",
+                "resolved_font": {
+                    "family": "Montserrat",
+                    "postscript_name": "Montserrat-Bold",
+                },
+                "match_source": "override_name",
+                "glyph_coverage_ok": True,
+                "segments": None,
+            }
+        ],
+    },
+    "warnings": [{"code": "TEXT_FIT_SHRUNK", "message": "Text was resized to fit."}],
 }
 
 # SudoAI 2D render: print_files carry export_path / duration_ms / export_format
@@ -326,6 +374,12 @@ MOCK_VIDEO_JOB_ACCEPTED_RESPONSE = {
 MOCK_PSD_UPLOAD_SYNC_RESPONSE = {
     "success": True,
     "data": MOCK_MOCKUP,
+    "warnings": [
+        {
+            "code": "PSD_HIDDEN_SMART_OBJECTS",
+            "message": "Some hidden layers are not available for personalization.",
+        }
+    ],
 }
 
 # Async PSD submit (202) returns a BARE body (no envelope).

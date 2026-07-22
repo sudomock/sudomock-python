@@ -49,6 +49,7 @@ from .conftest import (
     MOCK_MOCKUP_GET_RESPONSE,
     MOCK_MOCKUP_LIST_RESPONSE,
     MOCK_RENDER_RESPONSE,
+    MOCK_TEXT_RENDER_RESPONSE,
     TEST_API_KEY,
     TEST_BASE_URL,
 )
@@ -122,6 +123,7 @@ class TestAsyncMockupsGet:
 
         assert isinstance(result, Mockup)
         assert result.name == "Black T-Shirt Front"
+        assert result.text_layers[0].font_postscript_name == "Montserrat-Bold"
 
 
 class TestAsyncMockupsDelete:
@@ -156,14 +158,64 @@ class TestAsyncRenders:
         assert isinstance(result, Render)
         assert "render.webp" in result.url
 
+    async def test_create_text_only_render(self, mock_api: respx.MockRouter) -> None:
+        route = mock_api.post("/api/v1/renders").mock(
+            return_value=httpx.Response(200, json=MOCK_TEXT_RENDER_RESPONSE)
+        )
+        async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
+            result = await client.renders.create(
+                mockup_uuid="aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+                text_layers=[
+                    {
+                        "uuid": "66666666-7777-8888-9999-000000000000",
+                        "text": "Aylin",
+                        "font": "Montserrat-Bold",
+                        "font_size": 120,
+                        "color": "#FFFFFF",
+                        "stroke_color": ["#111111", None],
+                        "fit": "overflow",
+                    },
+                    {
+                        "uuid": "88888888-9999-aaaa-bbbb-cccccccccccc",
+                        "segments": [{"index": 1, "text": "Studio"}],
+                    },
+                ],
+                export_options={"image_format": "webp", "image_size": 2048},
+            )
+
+        assert json.loads(route.calls.last.request.content) == {
+            "mockup_uuid": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+            "text_layers": [
+                {
+                    "uuid": "66666666-7777-8888-9999-000000000000",
+                    "text": "Aylin",
+                    "font": "Montserrat-Bold",
+                    "font_size": 120,
+                    "color": "#FFFFFF",
+                    "stroke_color": ["#111111", None],
+                    "fit": "overflow",
+                },
+                {
+                    "uuid": "88888888-9999-aaaa-bbbb-cccccccccccc",
+                    "segments": [{"index": 1, "text": "Studio"}],
+                },
+            ],
+            "export_options": {"image_format": "webp", "image_size": 2048},
+        }
+        assert result.text_layers is not None
+        assert result.text_layers[0].resolved_font is not None
+        assert result.text_layers[0].resolved_font.postscript_name == "Montserrat-Bold"
+        assert result.warnings[0].code == "TEXT_FIT_SHRUNK"
+
     async def test_insufficient_credits(self, mock_api: respx.MockRouter) -> None:
         mock_api.post("/api/v1/renders").mock(return_value=httpx.Response(402, json=ERROR_402))
         async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
-            with pytest.raises(InsufficientCreditsError):
+            with pytest.raises(InsufficientCreditsError) as exc_info:
                 await client.renders.create(
                     mockup_uuid="test-uuid",
                     smart_objects=[{"uuid": "so-1", "asset": {"url": "https://x.com/d.png"}}],
                 )
+            assert exc_info.value.error_code == "credits_exhausted"
 
 
 # ---------------------------------------------------------------------------

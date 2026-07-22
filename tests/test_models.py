@@ -120,6 +120,8 @@ class TestMockup:
     def test_empty_smart_objects(self) -> None:
         m = Mockup(uuid="m-1", name="Empty")
         assert m.smart_objects == []
+        assert m.text_layers == []
+        assert m.warnings == []
 
     def test_thumbnail_field(self) -> None:
         # The API returns the main 720px preview under `thumbnail` (upload /

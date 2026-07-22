@@ -108,12 +108,52 @@ class SmartObject(_Base):
     # Forward-compatible: extra fields silently accepted
 
 
+class TextSegment(_Base):
+    """One styled segment of a text layer."""
+
+    index: int
+    text: str
+    font_postscript_name: Optional[str] = None
+    font_size: Optional[float] = None
+    color: Optional[str] = None
+
+
+class TextLayer(_Base):
+    """An editable text layer returned with a mockup."""
+
+    uuid: str
+    name: str
+    text_content: Optional[str] = None
+    font_postscript_name: Optional[str] = None
+    font_size: Optional[float] = None
+    color: Optional[str] = None
+    font_available: Optional[bool] = None
+    is_editable: bool = False
+    segment_count: int = 1
+    segments: Optional[list[TextSegment]] = None
+    visible: Optional[bool] = None
+    has_stroke_effect: bool = False
+    stroke_count: int = 0
+    has_color_overlay: bool = False
+    has_clipped_artwork: Optional[bool] = None
+    suggested_edit_together: Optional[list[str]] = None
+
+
+class ApiWarning(_Base):
+    """A non-fatal advisory returned with a successful request."""
+
+    code: str
+    message: str
+
+
 class Mockup(_Base):
     """A mockup template parsed from a PSD file."""
 
     uuid: str
     name: str
     smart_objects: list[SmartObject] = Field(default_factory=list)
+    text_layers: list[TextLayer] = Field(default_factory=list)
+    warnings: list[ApiWarning] = Field(default_factory=list)
     width: Optional[int] = None
     height: Optional[int] = None
     # Main preview thumbnail (720px). This is the field returned by the API for
@@ -166,10 +206,42 @@ class PrintFile(_Base):
         return self.export_path
 
 
+class ResolvedFontInfo(_Base):
+    """Font used for a text override."""
+
+    family: Optional[str] = None
+    postscript_name: Optional[str] = None
+
+
+class TextSegmentRenderInfo(_Base):
+    """Font details for a rendered text segment."""
+
+    index: int
+    requested_font: Optional[str] = None
+    resolved_font: Optional[ResolvedFontInfo] = None
+    match_source: str
+    glyph_coverage_ok: bool = True
+
+
+class TextLayerRenderInfo(_Base):
+    """Font details for a rendered text layer."""
+
+    uuid: str
+    name: Optional[str] = None
+    requested_font: Optional[str] = None
+    resolved_font: Optional[ResolvedFontInfo] = None
+    match_source: str
+    glyph_coverage_ok: bool = True
+    segments: Optional[list[TextSegmentRenderInfo]] = None
+
+
 class Render(_Base):
     """Result of a render request."""
 
     print_files: list[PrintFile]
+    render_uuid: Optional[str] = None
+    text_layers: Optional[list[TextLayerRenderInfo]] = None
+    warnings: list[ApiWarning] = Field(default_factory=list)
 
     @property
     def url(self) -> str:
