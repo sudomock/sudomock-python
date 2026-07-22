@@ -701,8 +701,8 @@ class _AsyncAIResource:
                 :meth:`list` / :meth:`get`).
             print_areas: One or more print-area configs. Each is a dict with a
                 required ``uuid`` (the ``print_area_id`` from create/get) plus
-                ``artwork_url`` and/or ``color`` (hex), and optional
-                ``adjustments`` / ``placement``.
+                ``base64`` (raw base64 artwork bytes), ``artwork_url``, and/or
+                ``color`` (hex), and optional ``adjustments`` / ``placement``.
             export_options: Export settings (``image_format``, ``image_size``,
                 ``quality``, ``dpi``).
             is_async: If ``True``, submit to the async queue and return a
