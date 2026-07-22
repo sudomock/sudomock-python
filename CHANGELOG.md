@@ -5,6 +5,12 @@ All notable changes to the `sudomock` Python SDK are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.1] - 2026-07-23
+
+### Added
+
+- 2D render print areas accept a `base64` artwork field, matching the PSD render path. Supply `base64`, `artwork_url`, or `color` per area.
+
 ## [0.6.0] - 2026-07-23
 
 ### Added
