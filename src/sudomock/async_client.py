@@ -132,8 +132,8 @@ class _AsyncMockupsResource:
             NotFoundError: If the mockup does not exist.
         """
         resp = await self._transport.request("GET", f"/api/v1/mockups/{uuid}")
-        data = resp.json()["data"]
-        return Mockup.model_validate(data)
+        payload = resp.json()
+        return Mockup.model_validate({**payload["data"], "warnings": payload.get("warnings") or []})
 
     async def update(self, uuid: str, *, name: str) -> Mockup:
         """Rename a mockup.
@@ -151,8 +151,8 @@ class _AsyncMockupsResource:
         resp = await self._transport.request(
             "PATCH", f"/api/v1/mockups/{uuid}", json={"name": name}
         )
-        data = resp.json()["data"]
-        return Mockup.model_validate(data)
+        payload = resp.json()
+        return Mockup.model_validate({**payload["data"], "warnings": payload.get("warnings") or []})
 
     async def delete(self, uuid: str) -> None:
         """Delete a mockup by UUID.
@@ -176,7 +176,8 @@ class _AsyncRendersResource:
         self,
         *,
         mockup_uuid: str,
-        smart_objects: list[dict[str, Any]],
+        smart_objects: Optional[list[dict[str, Any]]] = None,
+        text_layers: Optional[list[dict[str, Any]]] = None,
         export_options: Optional[dict[str, Any]] = None,
         export_label: Optional[str] = None,
         is_async: bool = False,
@@ -185,7 +186,10 @@ class _AsyncRendersResource:
 
         Args:
             mockup_uuid: UUID of the mockup to render.
-            smart_objects: List of smart object configurations.
+            smart_objects: Optional list of smart object configurations. Required
+                unless ``text_layers`` is provided.
+            text_layers: Optional text replacements using layer UUIDs from the
+                mockup response. Required unless ``smart_objects`` is provided.
             export_options: Optional export settings.
             export_label: Optional label for the export filename.
             is_async: If ``True``, submit to the server-side async queue and
@@ -199,10 +203,11 @@ class _AsyncRendersResource:
             InsufficientCreditsError: If the account has no remaining credits.
             ValidationError: If the request parameters are invalid.
         """
-        body: dict[str, Any] = {
-            "mockup_uuid": mockup_uuid,
-            "smart_objects": smart_objects,
-        }
+        body: dict[str, Any] = {"mockup_uuid": mockup_uuid}
+        if smart_objects is not None:
+            body["smart_objects"] = smart_objects
+        if text_layers is not None:
+            body["text_layers"] = text_layers
         if export_options is not None:
             body["export_options"] = export_options
         if export_label is not None:
@@ -220,7 +225,8 @@ class _AsyncRendersResource:
             # Async submit (202) returns a BARE body {job_id, kind, status,
             # status_url} — no {success, data} envelope. The sync path still wraps.
             return JobAccepted.model_validate(resp.json())
-        return Render.model_validate(resp.json()["data"])
+        payload = resp.json()
+        return Render.model_validate({**payload["data"], "warnings": payload.get("warnings") or []})
 
     async def create_video(
         self,
@@ -418,7 +424,8 @@ class _AsyncPsdResource:
             # Async submit (202) returns a BARE body {job_id, kind, status,
             # status_url} — no {success, data} envelope. The sync path still wraps.
             return JobAccepted.model_validate(resp.json())
-        return Mockup.model_validate(resp.json()["data"])
+        payload = resp.json()
+        return Mockup.model_validate({**payload["data"], "warnings": payload.get("warnings") or []})
 
 
 class _AsyncWebhookEndpointsResource:

@@ -249,6 +249,8 @@ class TestPsdUpload:
             result = client.psd.upload(url="https://x.com/file.psd", name="My PSD")
         assert isinstance(result, Mockup)
         assert result.name == "Black T-Shirt Front"
+        assert result.text_layers[0].name == "Customer Name"
+        assert result.warnings[0].code == "PSD_HIDDEN_SMART_OBJECTS"
         # Real BE field names are psd_file_url / psd_name (not url / name).
         body = json.loads(route.calls.last.request.content)
         assert body["psd_file_url"] == "https://x.com/file.psd"

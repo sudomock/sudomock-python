@@ -125,6 +125,8 @@ class TestAsyncPsd:
         async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
             result = await client.psd.upload(url="https://x.com/f.psd")
         assert isinstance(result, Mockup)
+        assert result.text_layers[0].name == "Customer Name"
+        assert result.warnings[0].code == "PSD_HIDDEN_SMART_OBJECTS"
 
     async def test_upload_async(self, mock_api: respx.MockRouter) -> None:
         mock_api.post("/api/v1/psd/upload").mock(
