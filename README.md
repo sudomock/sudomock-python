@@ -39,6 +39,38 @@ render = client.renders.create(
 print(render.url)  # https://cdn.sudomock.com/renders/.../render.webp
 ```
 
+## Batch text personalization
+
+Use an editable text layer from the mockup response to create personalized
+outputs. `smart_objects` is optional for text-only renders, and `fit` defaults
+to `"overflow"`.
+
+```python
+mockup = client.mockups.get("mockup-uuid")
+name_layer = next(layer for layer in mockup.text_layers if layer.name == "Customer Name")
+if not name_layer.is_editable:
+    raise ValueError("Customer Name is not editable")
+
+renders = [
+    client.renders.create(
+        mockup_uuid=mockup.uuid,
+        text_layers=[{
+            "uuid": name_layer.uuid,
+            "text": name,
+            "font": "Montserrat-Bold",
+            "color": "#FFFFFF",
+            "fit": "overflow",
+        }],
+    )
+    for name in ["Aylin", "Deniz", "Mert"]
+]
+
+for render in renders:
+    print(render.url)
+    for warning in render.warnings:
+        print(warning.code, warning.message)
+```
+
 ## Async Usage
 
 ```python
@@ -244,7 +276,7 @@ except ValidationError:
 except ServerError:
     print("Server error, will be retried automatically")
 except SudoMockError as e:
-    print(f"Unexpected error: {e.message} (HTTP {e.status_code})")
+    print(f"Unexpected error: {e.message} (HTTP {e.status_code}, code={e.error_code})")
 ```
 
 ## Account & Credits
@@ -292,7 +324,7 @@ client = SudoMock(
 
 | Method | Description |
 |--------|-------------|
-| `client.renders.create(mockup_uuid=, smart_objects=, export_options=, export_label=, is_async=False)` | Render a mockup (sync `Render`, or `JobAccepted` when `is_async=True`) |
+| `client.renders.create(mockup_uuid=, smart_objects=None, text_layers=None, export_options=, export_label=, is_async=False)` | Render artwork, text replacements, or both (sync `Render`, or `JobAccepted` when `is_async=True`) |
 | `client.renders.create_video(mockup_uuid=, smart_objects=, image_url=, duration_seconds=, audio=False, motion=None, advanced_model=None, webhook=None, ...)` | AI video render (always async, returns `JobAccepted`). Render mode (`mockup_uuid`+`smart_objects`) or raw-image mode (`image_url`) |
 
 ### Jobs

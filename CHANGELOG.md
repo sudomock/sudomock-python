@@ -5,6 +5,22 @@ All notable changes to the `sudomock` Python SDK are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-07-23
+
+### Added
+
+- PSD text personalization through `renders.create(text_layers=...)` on both
+  synchronous and asynchronous clients. Single-style text, styled segments,
+  font, size, color, outline color, and fit controls are supported.
+- Typed text-layer metadata on mockup/upload responses and font details on
+  render responses.
+- Successful response warnings and backend `error_code` values are surfaced.
+
+### Changed
+
+- `smart_objects` is optional for text-only renders. Existing keyword calls are
+  unchanged.
+
 ## [0.5.1] - 2026-07-21
 
 ### Added

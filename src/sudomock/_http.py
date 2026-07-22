@@ -73,22 +73,30 @@ def _raise_for_status(response: httpx.Response) -> None:
     except Exception:
         body = response.text or None
 
+    error_code = body.get("error_code") if isinstance(body, dict) else None
+    if not isinstance(error_code, str):
+        error_code = None
+
     if status == 401:
-        raise AuthenticationError(detail, status_code=status, body=body)
+        raise AuthenticationError(detail, status_code=status, error_code=error_code, body=body)
 
     if status == 402:
         credits_reset_at = None
         if isinstance(body, dict):
             credits_reset_at = body.get("credits_reset_at")
         raise InsufficientCreditsError(
-            detail, status_code=status, body=body, credits_reset_at=credits_reset_at
+            detail,
+            status_code=status,
+            error_code=error_code,
+            body=body,
+            credits_reset_at=credits_reset_at,
         )
 
     if status == 404:
-        raise NotFoundError(detail, status_code=status, body=body)
+        raise NotFoundError(detail, status_code=status, error_code=error_code, body=body)
 
     if status == 422:
-        raise ValidationError(detail, status_code=status, body=body)
+        raise ValidationError(detail, status_code=status, error_code=error_code, body=body)
 
     if status == 429:
         retry_after: Optional[float] = None
@@ -96,13 +104,19 @@ def _raise_for_status(response: httpx.Response) -> None:
             error_obj = body.get("error")
             if isinstance(error_obj, dict):
                 retry_after = error_obj.get("retry_after")
-        raise RateLimitError(detail, status_code=status, body=body, retry_after=retry_after)
+        raise RateLimitError(
+            detail,
+            status_code=status,
+            error_code=error_code,
+            body=body,
+            retry_after=retry_after,
+        )
 
     if status >= 500:
-        raise ServerError(detail, status_code=status, body=body)
+        raise ServerError(detail, status_code=status, error_code=error_code, body=body)
 
     # Catch-all for unexpected 4xx codes
-    raise SudoMockError(detail, status_code=status, body=body)
+    raise SudoMockError(detail, status_code=status, error_code=error_code, body=body)
 
 
 # ---------------------------------------------------------------------------
