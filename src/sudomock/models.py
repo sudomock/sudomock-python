@@ -326,6 +326,24 @@ class TwoDMockupList(_Base):
 
 
 # ---------------------------------------------------------------------------
+# Background removal
+# ---------------------------------------------------------------------------
+
+
+class BackgroundRemoval(_Base):
+    """Transparent-PNG cutout returned by ``POST /remove-background``.
+
+    ``url`` is permanent and can be handed straight back to a render as
+    artwork.
+    """
+
+    url: str
+    width: int
+    height: int
+    credits_charged: int
+
+
+# ---------------------------------------------------------------------------
 # Async jobs (is_async renders / uploads / video)
 # ---------------------------------------------------------------------------
 
