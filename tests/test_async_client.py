@@ -489,9 +489,7 @@ class TestAsyncImages:
             return_value=httpx.Response(200, json=MOCK_REMOVE_BACKGROUND_RESPONSE)
         )
         async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
-            await client.images.remove_background(
-                base64="aW1hZ2U=", content_type="image/jpeg"
-            )
+            await client.images.remove_background(base64="aW1hZ2U=", content_type="image/jpeg")
 
         assert json.loads(route.calls.last.request.content) == {
             "base64": "aW1hZ2U=",
@@ -510,9 +508,7 @@ class TestAsyncImages:
                 )
         assert len(mock_api.calls) == 0
 
-    async def test_remove_background_insufficient_credits(
-        self, mock_api: respx.MockRouter
-    ) -> None:
+    async def test_remove_background_insufficient_credits(self, mock_api: respx.MockRouter) -> None:
         mock_api.post("/api/v1/remove-background").mock(
             return_value=httpx.Response(402, json=ERROR_402)
         )
@@ -526,9 +522,7 @@ class TestAsyncImages:
         )
         async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
             with pytest.raises(ValidationError) as exc_info:
-                await client.images.remove_background(
-                    url="https://example.com/not-an-image.txt"
-                )
+                await client.images.remove_background(url="https://example.com/not-an-image.txt")
             assert exc_info.value.error_code == "INVALID_IMAGE"
 
 
