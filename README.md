@@ -189,19 +189,20 @@ job = client.renders.create_video(
 
 ## Background Removal
 
-Remove the background from an image; returns a permanent transparent-PNG cutout
-URL you can hand straight back to a render as artwork. Supply exactly one of
-`url` or `base64`. Costs **25 credits** per image; credits are refunded
-automatically if processing fails.
+Remove the background from an image; returns a signed transparent-PNG cutout URL
+valid for 7 days that you can hand straight back to a render as artwork. The
+cutout itself remains retained for your account. Supply exactly one of `url` or
+`base64`. Costs **25 credits** per image; credits are refunded automatically if
+processing fails.
 
 ```python
 cutout = client.images.remove_background(url="https://example.com/product-photo.jpg")
 
-print(cutout.url)              # permanent transparent-PNG URL
+print(cutout.url)              # signed cutout URL, valid for 7 days
 print(cutout.width, cutout.height)
 print(cutout.credits_charged)  # 25
 
-# Clean once, reuse across any number of renders
+# Reuse the URL in renders during its 7-day validity window
 render = client.renders.create(
     mockup_uuid="mockup-uuid",
     smart_objects=[{"uuid": "so-uuid", "asset": {"url": cutout.url}}],
@@ -404,7 +405,7 @@ client = SudoMock(
 
 | Method | Description |
 |--------|-------------|
-| `client.images.remove_background(url=, base64=, content_type=)` | Remove an image's background (25 credits; returns a `BackgroundRemoval` with a permanent transparent-PNG cutout URL) |
+| `client.images.remove_background(url=, base64=, content_type=)` | Remove an image's background (25 credits; returns a `BackgroundRemoval` with a signed transparent-PNG cutout URL valid for 7 days) |
 
 ### Account
 

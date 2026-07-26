@@ -333,8 +333,8 @@ class TwoDMockupList(_Base):
 class BackgroundRemoval(_Base):
     """Transparent-PNG cutout returned by ``POST /remove-background``.
 
-    ``url`` is permanent and can be handed straight back to a render as
-    artwork.
+    ``url`` is signed and valid for 7 days; the cutout itself remains retained
+    for the account.
     """
 
     url: str
