@@ -802,9 +802,9 @@ class _AsyncImagesResource:
     ) -> BackgroundRemoval:
         """Remove the background from an image (costs 25 credits).
 
-        Returns a permanent transparent-PNG cutout URL, ready to hand back to a
-        render as artwork -- clean the artwork once, then reuse the cutout. To
-        clean artwork inline during a render instead, set
+        Returns a signed transparent-PNG cutout URL valid for 7 days, ready to
+        hand back to a render as artwork. The cutout itself remains retained for
+        the account. To clean artwork inline during a render instead, set
         ``"remove_background": True`` on the render asset
         (:meth:`renders.create`) or print area (:meth:`ai.render`).
 
@@ -819,8 +819,9 @@ class _AsyncImagesResource:
                 ``image/png``.
 
         Returns:
-            :class:`BackgroundRemoval` with the cutout ``url``, its ``width`` /
-            ``height`` in pixels, and ``credits_charged``.
+            :class:`BackgroundRemoval` with the signed cutout ``url`` (valid for
+            7 days), its ``width`` / ``height`` in pixels, and
+            ``credits_charged``.
 
         Raises:
             ValueError: If both or neither image source is supplied.
