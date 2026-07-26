@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [0.7.0] - 2026-07-26
+
 ### Added
 
 - `client.images.remove_background(url=...)` (or `base64=...`) on both the
@@ -128,6 +130,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Typed Pydantic v2 response models, typed exceptions, and tenacity-backed retry
   with exponential backoff.
 
-[Unreleased]: https://github.com/sudomock/sudomock-python/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/sudomock/sudomock-python/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/sudomock/sudomock-python/compare/v0.6.1...v0.7.0
 [0.2.0]: https://github.com/sudomock/sudomock-python/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/sudomock/sudomock-python/releases/tag/v0.1.0
