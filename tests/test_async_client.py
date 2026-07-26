@@ -18,10 +18,12 @@ from sudomock.exceptions import (
     RateLimitError,
     ServerError,
     SudoMockError,
+    ValidationError,
 )
 from sudomock.models import (
     AccountInfo,
     AIRender,
+    BackgroundRemoval,
     JobAccepted,
     Mockup,
     MockupList,
@@ -34,6 +36,7 @@ from sudomock.models import (
 from .conftest import (
     ERROR_401,
     ERROR_402,
+    ERROR_422_INVALID_IMAGE,
     ERROR_429,
     ERROR_500,
     MOCK_2D_MOCKUP_GET_RESPONSE,
@@ -48,6 +51,7 @@ from .conftest import (
     MOCK_MOCKUP,
     MOCK_MOCKUP_GET_RESPONSE,
     MOCK_MOCKUP_LIST_RESPONSE,
+    MOCK_REMOVE_BACKGROUND_RESPONSE,
     MOCK_RENDER_RESPONSE,
     MOCK_TEXT_RENDER_RESPONSE,
     TEST_API_KEY,
@@ -454,6 +458,78 @@ class TestAsyncAI:
         assert result.mockup_id == "2d-mockup-001"
         assert isinstance(result.print_areas[0], Quad)
         assert result.print_areas[0].print_area_id == "pa-1"
+
+
+# ---------------------------------------------------------------------------
+# Images resource
+# ---------------------------------------------------------------------------
+
+
+class TestAsyncImages:
+    async def test_remove_background_from_url(self, mock_api: respx.MockRouter) -> None:
+        route = mock_api.post("/api/v1/remove-background").mock(
+            return_value=httpx.Response(200, json=MOCK_REMOVE_BACKGROUND_RESPONSE)
+        )
+        async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
+            result = await client.images.remove_background(
+                url="https://example.com/product-photo.jpg"
+            )
+
+        assert isinstance(result, BackgroundRemoval)
+        assert result.url.endswith("cutout.png")
+        assert result.width == 1200
+        assert result.height == 1600
+        assert result.credits_charged == 25
+        assert json.loads(route.calls.last.request.content) == {
+            "url": "https://example.com/product-photo.jpg"
+        }
+
+    async def test_remove_background_from_base64(self, mock_api: respx.MockRouter) -> None:
+        route = mock_api.post("/api/v1/remove-background").mock(
+            return_value=httpx.Response(200, json=MOCK_REMOVE_BACKGROUND_RESPONSE)
+        )
+        async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
+            await client.images.remove_background(
+                base64="aW1hZ2U=", content_type="image/jpeg"
+            )
+
+        assert json.loads(route.calls.last.request.content) == {
+            "base64": "aW1hZ2U=",
+            "content_type": "image/jpeg",
+        }
+
+    async def test_remove_background_requires_exactly_one_source(
+        self, mock_api: respx.MockRouter
+    ) -> None:
+        async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
+            with pytest.raises(ValueError, match="exactly one"):
+                await client.images.remove_background()
+            with pytest.raises(ValueError, match="exactly one"):
+                await client.images.remove_background(
+                    url="https://example.com/x.jpg", base64="eA=="
+                )
+        assert len(mock_api.calls) == 0
+
+    async def test_remove_background_insufficient_credits(
+        self, mock_api: respx.MockRouter
+    ) -> None:
+        mock_api.post("/api/v1/remove-background").mock(
+            return_value=httpx.Response(402, json=ERROR_402)
+        )
+        async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
+            with pytest.raises(InsufficientCreditsError):
+                await client.images.remove_background(url="https://example.com/x.jpg")
+
+    async def test_remove_background_invalid_image(self, mock_api: respx.MockRouter) -> None:
+        mock_api.post("/api/v1/remove-background").mock(
+            return_value=httpx.Response(422, json=ERROR_422_INVALID_IMAGE)
+        )
+        async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
+            with pytest.raises(ValidationError) as exc_info:
+                await client.images.remove_background(
+                    url="https://example.com/not-an-image.txt"
+                )
+            assert exc_info.value.error_code == "INVALID_IMAGE"
 
 
 # ---------------------------------------------------------------------------

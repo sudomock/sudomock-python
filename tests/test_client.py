@@ -24,6 +24,7 @@ from sudomock.exceptions import (
 from sudomock.models import (
     AccountInfo,
     AIRender,
+    BackgroundRemoval,
     JobAccepted,
     Mockup,
     MockupList,
@@ -38,8 +39,10 @@ from .conftest import (
     ERROR_402,
     ERROR_404,
     ERROR_422,
+    ERROR_422_INVALID_IMAGE,
     ERROR_429,
     ERROR_500,
+    ERROR_502_BACKGROUND_REMOVAL,
     MOCK_2D_MOCKUP_DELETE_RESPONSE,
     MOCK_2D_MOCKUP_GET_RESPONSE,
     MOCK_2D_MOCKUP_JOB_ACCEPTED_RESPONSE,
@@ -54,6 +57,7 @@ from .conftest import (
     MOCK_MOCKUP,
     MOCK_MOCKUP_GET_RESPONSE,
     MOCK_MOCKUP_LIST_RESPONSE,
+    MOCK_REMOVE_BACKGROUND_RESPONSE,
     MOCK_RENDER_RESPONSE,
     MOCK_TEXT_RENDER_RESPONSE,
     TEST_API_KEY,
@@ -224,6 +228,29 @@ class TestRenders:
         assert body["export_options"]["image_format"] == "png"
         assert body["export_label"] == "my-render"
 
+    def test_create_render_with_remove_background_asset(
+        self, mock_api: respx.MockRouter
+    ) -> None:
+        route = mock_api.post("/api/v1/renders").mock(
+            return_value=httpx.Response(200, json=MOCK_RENDER_RESPONSE)
+        )
+        with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
+            client.renders.create(
+                mockup_uuid="aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+                smart_objects=[
+                    {
+                        "uuid": "11111111-2222-3333-4444-555555555555",
+                        "asset": {
+                            "url": "https://example.com/photo.jpg",
+                            "remove_background": True,
+                        },
+                    }
+                ],
+            )
+
+        body = json.loads(route.calls.last.request.content)
+        assert body["smart_objects"][0]["asset"]["remove_background"] is True
+
     def test_create_text_only_render(self, mock_api: respx.MockRouter) -> None:
         route = mock_api.post("/api/v1/renders").mock(
             return_value=httpx.Response(200, json=MOCK_TEXT_RENDER_RESPONSE)
@@ -347,6 +374,25 @@ class TestAI:
         body = json.loads(route.calls.last.request.content)
         assert body["print_areas"][0]["color"] == "#FF0000"
         assert body["export_options"]["image_format"] == "png"
+
+    def test_ai_render_with_remove_background(self, mock_api: respx.MockRouter) -> None:
+        route = mock_api.post("/api/v1/sudoai/2d-mockups/2d-mockup-001/render").mock(
+            return_value=httpx.Response(200, json=MOCK_AI_RENDER_RESPONSE)
+        )
+        with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
+            client.ai.render(
+                mockup_uuid="2d-mockup-001",
+                print_areas=[
+                    {
+                        "uuid": "pa-1",
+                        "artwork_url": "https://example.com/photo.jpg",
+                        "remove_background": True,
+                    }
+                ],
+            )
+
+        body = json.loads(route.calls.last.request.content)
+        assert body["print_areas"][0]["remove_background"] is True
 
     def test_ai_render_async(self, mock_api: respx.MockRouter) -> None:
         route = mock_api.post("/api/v1/sudoai/2d-mockups/2d-mockup-001/render").mock(
@@ -577,6 +623,86 @@ class TestAI:
             assert one.name == "Flat Tee Front"
 
             client.ai.delete("2d-mockup-001")  # should not raise
+
+
+# ---------------------------------------------------------------------------
+# Images resource
+# ---------------------------------------------------------------------------
+
+
+class TestImages:
+    def test_remove_background_from_url(self, mock_api: respx.MockRouter) -> None:
+        route = mock_api.post("/api/v1/remove-background").mock(
+            return_value=httpx.Response(200, json=MOCK_REMOVE_BACKGROUND_RESPONSE)
+        )
+        with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
+            result = client.images.remove_background(
+                url="https://example.com/product-photo.jpg"
+            )
+
+        assert isinstance(result, BackgroundRemoval)
+        assert result.url.endswith("cutout.png")
+        assert result.width == 1200
+        assert result.height == 1600
+        assert result.credits_charged == 25
+        assert json.loads(route.calls.last.request.content) == {
+            "url": "https://example.com/product-photo.jpg"
+        }
+
+    def test_remove_background_from_base64(self, mock_api: respx.MockRouter) -> None:
+        route = mock_api.post("/api/v1/remove-background").mock(
+            return_value=httpx.Response(200, json=MOCK_REMOVE_BACKGROUND_RESPONSE)
+        )
+        with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
+            client.images.remove_background(base64="aW1hZ2U=", content_type="image/jpeg")
+
+        assert json.loads(route.calls.last.request.content) == {
+            "base64": "aW1hZ2U=",
+            "content_type": "image/jpeg",
+        }
+
+    def test_remove_background_requires_exactly_one_source(
+        self, mock_api: respx.MockRouter
+    ) -> None:
+        with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
+            with pytest.raises(ValueError, match="exactly one"):
+                client.images.remove_background()
+            with pytest.raises(ValueError, match="exactly one"):
+                client.images.remove_background(
+                    url="https://example.com/x.jpg", base64="eA=="
+                )
+        assert len(mock_api.calls) == 0
+
+    def test_remove_background_insufficient_credits(
+        self, mock_api: respx.MockRouter
+    ) -> None:
+        mock_api.post("/api/v1/remove-background").mock(
+            return_value=httpx.Response(402, json=ERROR_402)
+        )
+        with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
+            with pytest.raises(InsufficientCreditsError):
+                client.images.remove_background(url="https://example.com/x.jpg")
+
+    def test_remove_background_invalid_image(self, mock_api: respx.MockRouter) -> None:
+        mock_api.post("/api/v1/remove-background").mock(
+            return_value=httpx.Response(422, json=ERROR_422_INVALID_IMAGE)
+        )
+        with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
+            with pytest.raises(ValidationError) as exc_info:
+                client.images.remove_background(url="https://example.com/not-an-image.txt")
+            assert exc_info.value.error_code == "INVALID_IMAGE"
+
+    def test_remove_background_processing_failure_refunds(
+        self, mock_api: respx.MockRouter
+    ) -> None:
+        """A 502 surfaces the failure code; the API refunds the credits."""
+        mock_api.post("/api/v1/remove-background").mock(
+            return_value=httpx.Response(502, json=ERROR_502_BACKGROUND_REMOVAL)
+        )
+        with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, max_retries=1) as client:
+            with pytest.raises(ServerError) as exc_info:
+                client.images.remove_background(url="https://example.com/product.jpg")
+            assert exc_info.value.error_code == "BACKGROUND_REMOVAL_FAILED"
 
 
 # ---------------------------------------------------------------------------

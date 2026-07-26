@@ -140,6 +140,17 @@ MOCK_AI_RENDER_JOB_ACCEPTED_RESPONSE = {
     "status_url": "/api/v1/jobs/2d-render-job-001",
 }
 
+# Background removal (POST /remove-background) — {success, data} envelope.
+MOCK_REMOVE_BACKGROUND_RESPONSE = {
+    "success": True,
+    "data": {
+        "url": "https://cdn.sudomock.com/bg-cutouts/u/user-uuid-1234/cutout.png",
+        "width": 1200,
+        "height": 1600,
+        "credits_charged": 25,
+    },
+}
+
 # 2D mockup detail (GET /sudoai/2d-mockups/{id}) — has quads (with optional name).
 MOCK_2D_MOCKUP = {
     "mockup_id": "2d-mockup-001",
@@ -449,6 +460,22 @@ ERROR_429 = {
     "detail": "Rate limit exceeded",
     "success": False,
     "error": {"retry_after": 30},
+}
+# A structured error detail is flattened to the top level by the API, so
+# error_code / message / suggestion sit alongside detail.
+ERROR_422_INVALID_IMAGE = {
+    "error_code": "INVALID_IMAGE",
+    "message": "The provided file is not a supported image.",
+    "suggestion": "Use a PNG, JPEG or WebP image.",
+    "detail": "The provided file is not a supported image.",
+    "success": False,
+}
+ERROR_502_BACKGROUND_REMOVAL = {
+    "error_code": "BACKGROUND_REMOVAL_FAILED",
+    "message": "The background could not be removed from this image.",
+    "suggestion": "Please try again, or use a different image.",
+    "detail": "The background could not be removed from this image.",
+    "success": False,
 }
 ERROR_500 = {"detail": "Internal server error", "success": False}
 
