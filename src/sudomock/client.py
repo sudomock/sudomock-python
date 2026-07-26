@@ -32,6 +32,7 @@ from .exceptions import JobFailedError, JobTimeoutError, SudoMockError
 from .models import (
     AccountInfo,
     AIRender,
+    BackgroundRemoval,
     Job,
     JobAccepted,
     JobList,
@@ -170,8 +171,11 @@ class _RendersResource:
             mockup_uuid: UUID of the mockup to render.
             smart_objects: Optional list of smart object configurations, each
                 containing ``uuid`` and ``asset`` (with ``url``, optional ``fit``,
-                ``rotate``, ``position``, ``size``). Required unless
-                ``text_layers`` is provided.
+                ``rotate``, ``position``, ``size``, ``remove_background``).
+                Required unless ``text_layers`` is provided. Setting
+                ``"remove_background": True`` on an asset isolates its subject
+                onto a clean transparent cutout before placement and adds 25
+                credits per unique artwork to the render cost.
             text_layers: Optional text replacements using layer UUIDs from the
                 mockup response. Required unless ``smart_objects`` is provided.
             export_options: Optional export settings (``image_format``, ``image_size``,
@@ -755,9 +759,12 @@ class _AIResource:
             print_areas: One or more print-area configs. Each is a dict with a
                 required ``uuid`` (the ``print_area_id`` from create/get) plus
                 ``base64`` (raw base64 artwork bytes), ``artwork_url``, and/or
-                ``color`` (hex), and optional ``adjustments`` / ``placement``.
-                At least one of ``base64``, ``artwork_url`` or ``color`` must be
-                supplied per area.
+                ``color`` (hex), and optional ``adjustments`` / ``placement`` /
+                ``remove_background``. At least one of ``base64``,
+                ``artwork_url`` or ``color`` must be supplied per area. Setting
+                ``"remove_background": True`` isolates the artwork's subject
+                onto a clean transparent cutout before placement and adds 25
+                credits per unique artwork to the render cost.
             export_options: Export settings (``image_format``, ``image_size``,
                 ``quality``, ``dpi``).
             is_async: If ``True``, submit to the async queue and return a
@@ -841,6 +848,64 @@ class _AIResource:
             NotFoundError: If the 2D mockup does not exist.
         """
         self._transport.request("DELETE", f"/api/v1/sudoai/2d-mockups/{mockup_id}")
+
+
+class _ImagesResource:
+    """Standalone image operations."""
+
+    def __init__(self, transport: SyncTransport) -> None:
+        self._transport = transport
+
+    def remove_background(
+        self,
+        *,
+        url: Optional[str] = None,
+        base64: Optional[str] = None,
+        content_type: Optional[str] = None,
+    ) -> BackgroundRemoval:
+        """Remove the background from an image (costs 25 credits).
+
+        Returns a permanent transparent-PNG cutout URL, ready to hand back to a
+        render as artwork -- clean the artwork once, then reuse the cutout. To
+        clean artwork inline during a render instead, set
+        ``"remove_background": True`` on the render asset
+        (:meth:`SudoMock.renders.create`) or print area
+        (:meth:`SudoMock.ai.render`).
+
+        Exactly one image source must be supplied. Credits are refunded
+        automatically if processing fails.
+
+        Args:
+            url: Public HTTP/HTTPS URL of the image to process.
+            base64: Raw base64-encoded image bytes (no ``data:`` prefix).
+            content_type: MIME type of the ``base64`` bytes -- ``image/png``,
+                ``image/jpeg``, ``image/webp`` or ``image/gif``. Defaults to
+                ``image/png``.
+
+        Returns:
+            :class:`BackgroundRemoval` with the cutout ``url``, its ``width`` /
+            ``height`` in pixels, and ``credits_charged``.
+
+        Raises:
+            ValueError: If both or neither image source is supplied.
+            InsufficientCreditsError: If fewer than 25 credits remain.
+            ValidationError: If the image cannot be retrieved or is not a
+                supported format.
+        """
+        if bool(url) == bool(base64):
+            raise ValueError("remove_background requires exactly one of url or base64")
+
+        body: dict[str, Any] = {"url": url} if url else {"base64": base64}
+        if content_type is not None:
+            body["content_type"] = content_type
+
+        resp = self._transport.request(
+            "POST",
+            "/api/v1/remove-background",
+            json=body,
+            timeout=self._transport._render_timeout,
+        )
+        return BackgroundRemoval.model_validate(resp.json()["data"])
 
 
 class _AccountResource:
@@ -938,6 +1003,7 @@ class SudoMock:
         self.jobs = _JobsResource(self._transport)
         self.psd = _PsdResource(self._transport)
         self.ai = _AIResource(self._transport)
+        self.images = _ImagesResource(self._transport)
         self.account = _AccountResource(self._transport)
         self.packages = _PackagesResource(self._transport)
         self.webhook_endpoints = _WebhookEndpointsResource(self._transport)
