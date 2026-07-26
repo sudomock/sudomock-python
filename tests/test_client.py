@@ -228,9 +228,7 @@ class TestRenders:
         assert body["export_options"]["image_format"] == "png"
         assert body["export_label"] == "my-render"
 
-    def test_create_render_with_remove_background_asset(
-        self, mock_api: respx.MockRouter
-    ) -> None:
+    def test_create_render_with_remove_background_asset(self, mock_api: respx.MockRouter) -> None:
         route = mock_api.post("/api/v1/renders").mock(
             return_value=httpx.Response(200, json=MOCK_RENDER_RESPONSE)
         )
@@ -636,9 +634,7 @@ class TestImages:
             return_value=httpx.Response(200, json=MOCK_REMOVE_BACKGROUND_RESPONSE)
         )
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
-            result = client.images.remove_background(
-                url="https://example.com/product-photo.jpg"
-            )
+            result = client.images.remove_background(url="https://example.com/product-photo.jpg")
 
         assert isinstance(result, BackgroundRemoval)
         assert result.url.endswith("cutout.png")
@@ -668,14 +664,10 @@ class TestImages:
             with pytest.raises(ValueError, match="exactly one"):
                 client.images.remove_background()
             with pytest.raises(ValueError, match="exactly one"):
-                client.images.remove_background(
-                    url="https://example.com/x.jpg", base64="eA=="
-                )
+                client.images.remove_background(url="https://example.com/x.jpg", base64="eA==")
         assert len(mock_api.calls) == 0
 
-    def test_remove_background_insufficient_credits(
-        self, mock_api: respx.MockRouter
-    ) -> None:
+    def test_remove_background_insufficient_credits(self, mock_api: respx.MockRouter) -> None:
         mock_api.post("/api/v1/remove-background").mock(
             return_value=httpx.Response(402, json=ERROR_402)
         )
@@ -692,9 +684,7 @@ class TestImages:
                 client.images.remove_background(url="https://example.com/not-an-image.txt")
             assert exc_info.value.error_code == "INVALID_IMAGE"
 
-    def test_remove_background_processing_failure_refunds(
-        self, mock_api: respx.MockRouter
-    ) -> None:
+    def test_remove_background_processing_failure_refunds(self, mock_api: respx.MockRouter) -> None:
         """A 502 surfaces the failure code; the API refunds the credits."""
         mock_api.post("/api/v1/remove-background").mock(
             return_value=httpx.Response(502, json=ERROR_502_BACKGROUND_REMOVAL)
