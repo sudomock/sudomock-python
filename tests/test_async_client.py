@@ -29,6 +29,10 @@ from sudomock.models import (
     MockupList,
     Quad,
     Render,
+    StudioActionReceipt,
+    StudioResultEvent,
+    StudioResultPayload,
+    StudioSession,
     TwoDMockup,
     TwoDPrintAreasUpdate,
 )
@@ -44,6 +48,7 @@ from .conftest import (
     MOCK_2D_MOCKUP_JOB_FAILED_RESPONSE,
     MOCK_2D_MOCKUP_JOB_QUEUED_RESPONSE,
     MOCK_2D_MOCKUP_JOB_SUCCEEDED_RESPONSE,
+    MOCK_2D_MOCKUP_LIST_RESPONSE,
     MOCK_2D_PRINT_AREAS_UPDATE_RESPONSE,
     MOCK_AI_RENDER_JOB_ACCEPTED_RESPONSE,
     MOCK_AI_RENDER_RESPONSE,
@@ -206,9 +211,8 @@ class TestAsyncRenders:
             ],
             "export_options": {"image_format": "webp", "image_size": 2048},
         }
-        assert result.text_layers is not None
-        assert result.text_layers[0].resolved_font is not None
-        assert result.text_layers[0].resolved_font.postscript_name == "Montserrat-Bold"
+        assert result.warnings[0].code == "TEXT_FIT_SHRUNK"
+        assert "text_layers" not in result.model_dump()
         assert result.warnings[0].code == "TEXT_FIT_SHRUNK"
 
     async def test_insufficient_credits(self, mock_api: respx.MockRouter) -> None:
@@ -228,6 +232,21 @@ class TestAsyncRenders:
 
 
 class TestAsyncAI:
+    async def test_ai_list_customizable_only(self, mock_api: respx.MockRouter) -> None:
+        route = mock_api.get("/api/v1/sudoai/2d-mockups").mock(
+            return_value=httpx.Response(200, json=MOCK_2D_MOCKUP_LIST_RESPONSE)
+        )
+        async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
+            listing = await client.ai.list(
+                limit=20,
+                customizable_only=True,
+            )
+
+        assert listing.mockups[0].customizable is True
+        assert listing.mockups[0].print_areas[0].print_area_id == "pa-1"
+        assert listing.mockups[0].surfaces[0].coverage == "full"
+        assert route.calls.last.request.url.params["customizable_only"] == "true"
+
     async def test_ai_render(self, mock_api: respx.MockRouter) -> None:
         route = mock_api.post("/api/v1/sudoai/2d-mockups/2d-mockup-001/render").mock(
             return_value=httpx.Response(200, json=MOCK_AI_RENDER_RESPONSE)
@@ -270,6 +289,21 @@ class TestAsyncAI:
         assert body["print_areas"][0]["uuid"] == "pa-1"
         assert "mockup_uuid" not in body
 
+    async def test_ai_render_product_surface_uses_surface_uuid(
+        self, mock_api: respx.MockRouter
+    ) -> None:
+        route = mock_api.post("/api/v1/sudoai/2d-mockups/2d-mockup-001/render").mock(
+            return_value=httpx.Response(200, json=MOCK_AI_RENDER_RESPONSE)
+        )
+        async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
+            await client.ai.render(
+                mockup_uuid="2d-mockup-001",
+                print_areas=[{"surface_uuid": "surface-1", "color": "#FF0000"}],
+            )
+
+        surface = json.loads(route.calls.last.request.content)["print_areas"][0]
+        assert surface == {"surface_uuid": "surface-1", "color": "#FF0000"}
+
     async def test_ai_create(self, mock_api: respx.MockRouter) -> None:
         route = mock_api.post("/api/v1/sudoai/2d-mockups").mock(
             return_value=httpx.Response(201, json=MOCK_2D_MOCKUP_GET_RESPONSE)
@@ -287,6 +321,8 @@ class TestAsyncAI:
         assert result.status == "ready"
         assert result.quads[0].print_area_id == "pa-1"
         assert result.quads[0].name == "Front"
+        assert result.customizable is True
+        assert result.surfaces[0].surface_uuid == "surface-1"
         assert json.loads(route.calls.last.request.content) == {
             "source_url": "https://example.com/product.jpg",
             "name": "Product Front",
@@ -459,6 +495,25 @@ class TestAsyncAI:
         assert isinstance(result.print_areas[0], Quad)
         assert result.print_areas[0].print_area_id == "pa-1"
 
+    async def test_ai_update_2d_print_areas_forwards_empty_product_surface_state(
+        self, mock_api: respx.MockRouter
+    ) -> None:
+        route = mock_api.put("/api/v1/sudoai/2d-mockups/2d-mockup-001/print-areas").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "success": True,
+                    "data": {"mockup_id": "2d-mockup-001", "print_areas": []},
+                },
+            )
+        )
+
+        async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
+            result = await client.ai.update_2d_print_areas("2d-mockup-001", [])
+
+        assert json.loads(route.calls.last.request.content) == {"print_areas": []}
+        assert result.print_areas == []
+
 
 # ---------------------------------------------------------------------------
 # Images resource
@@ -524,6 +579,111 @@ class TestAsyncImages:
             with pytest.raises(ValidationError) as exc_info:
                 await client.images.remove_background(url="https://example.com/not-an-image.txt")
             assert exc_info.value.error_code == "INVALID_IMAGE"
+
+
+# ---------------------------------------------------------------------------
+# Studio resource
+# ---------------------------------------------------------------------------
+
+
+class TestAsyncStudio:
+    async def test_create_2d_session_with_origin_and_product_context(
+        self, mock_api: respx.MockRouter
+    ) -> None:
+        mock_api.post("/api/v1/studio/create-session").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "success": True,
+                    "session": "sess_test",
+                    "expires_in": 1800,
+                    "mockup_type": "2d",
+                    "message_session_id": "22222222-2222-4222-8222-222222222222",
+                    "bootstrap_secret": "secret",
+                },
+            )
+        )
+        async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
+            result = await client.studio.create_session(
+                mockup_type="2d",
+                session_kind="customize",
+                mockup_uuid="11111111-1111-4111-8111-111111111111",
+                allowed_origin="https://shop.example",
+                product_id="product-1",
+                variant_id="variant-2",
+                action_id="add-to-cart",
+                ui={"primary_action_label": "Add to cart"},
+            )
+
+        assert isinstance(result, StudioSession)
+        assert result.mockup_type == "2d"
+        assert json.loads(mock_api.calls[-1].request.content) == {
+            "mockup_type": "2d",
+            "session_kind": "customize",
+            "mockup_uuid": "11111111-1111-4111-8111-111111111111",
+            "allowed_origin": "https://shop.example",
+            "product_id": "product-1",
+            "variant_id": "variant-2",
+            "ui": {"primary_action_label": "Add to cart"},
+            "action_id": "add-to-cart",
+        }
+
+    async def test_consume_psd_action_without_2d_revision_fields(
+        self, mock_api: respx.MockRouter
+    ) -> None:
+        event = StudioResultEvent(
+            version=1,
+            source="sudomock-studio",
+            type="studio.design-submitted",
+            request_id="11111111-1111-4111-8111-111111111111",
+            message_session_id="22222222-2222-4222-8222-222222222222",
+            payload=StudioResultPayload(
+                mockup_uuid="33333333-3333-4333-8333-333333333333",
+                render_uuid="44444444-4444-4444-8444-444444444444",
+                action_id="add-to-cart",
+            ),
+        )
+        action_context = {
+            "product_id": "product-1",
+            "variant_id": "variant-2",
+        }
+        mock_api.post("/api/v1/studio/actions/consume").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "success": True,
+                    "replayed": False,
+                    "receipt": {
+                        "version": 1,
+                        "request_id": event.request_id,
+                        "message_session_id": event.message_session_id,
+                        "type": event.type,
+                        "mockup_type": "psd",
+                        "session_kind": "customize",
+                        "action_id": "add-to-cart",
+                        "action_context": action_context,
+                        "mockup_uuid": event.payload.mockup_uuid,
+                        "render_uuid": event.payload.render_uuid,
+                    },
+                },
+            )
+        )
+
+        async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
+            result = await client.studio.consume_action(
+                event,
+                action_context=action_context,
+            )
+
+        assert isinstance(result, StudioActionReceipt)
+        payload = json.loads(mock_api.calls[-1].request.content)["payload"]
+        assert payload["action_context"] == action_context
+        assert set(payload) == {
+            "mockup_uuid",
+            "render_uuid",
+            "action_id",
+            "action_context",
+        }
 
 
 # ---------------------------------------------------------------------------

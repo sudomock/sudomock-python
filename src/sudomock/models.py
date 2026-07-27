@@ -1,15 +1,17 @@
-"""Pydantic v2 response models for the SudoMock API.
-
-All models use ``model_config = {"extra": "allow"}`` so that new fields
-added to the API do not break existing SDK versions.
-"""
+"""Pydantic v2 response models for the outcome-only SudoMock API."""
 
 from __future__ import annotations
 
 from datetime import datetime  # noqa: TCH003 - Pydantic needs this at runtime
-from typing import Any, Optional, Union
+from typing import Any, Literal, Optional, TypedDict
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from ._public_contract import (
+    is_implementation_key,
+    public_error_code,
+    public_error_text,
+)
 
 # ---------------------------------------------------------------------------
 # Shared / base
@@ -17,9 +19,26 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class _Base(BaseModel):
-    """Base model with forward-compatible config."""
+    """Forward-compatible base for established customer-facing resources."""
 
     model_config = ConfigDict(extra="allow", populate_by_name=True)
+
+    @model_validator(mode="before")
+    @classmethod
+    def hide_implementation_fields(cls, value: Any) -> Any:
+        if not isinstance(value, dict) or cls.model_config.get("extra") == "forbid":
+            return value
+        return {
+            key: item
+            for key, item in value.items()
+            if key in cls.model_fields or not is_implementation_key(key)
+        }
+
+
+class _Outcome(_Base):
+    """Strict outcome surface that drops undocumented fields."""
+
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
 
 # ---------------------------------------------------------------------------
@@ -75,6 +94,87 @@ class AccountInfo(_Base):
     subscription: Subscription
     usage: Usage
     api_key: ApiKeyInfo
+
+
+class StudioSessionUi(TypedDict, total=False):
+    """Request-scoped Studio labels and primary action color."""
+
+    primary_action_label: str
+    secondary_action_label: str
+    accent_color: str
+
+
+class StudioSession(_Outcome):
+    """Opaque Studio session returned by POST /studio/create-session."""
+
+    success: Literal[True] = True
+    session: str
+    expires_in: int
+    mockup_type: Literal["psd", "2d"]
+    message_session_id: str
+    bootstrap_secret: str
+
+
+class StudioResultPayload(_Outcome):
+    """Outcome-only Studio result callback payload."""
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    mockup_uuid: str
+    render_uuid: str
+    action_id: Optional[str] = None
+
+
+class StudioResultEvent(_Outcome):
+    """Setup or customize result sent by the Studio iframe."""
+
+    version: Literal[1]
+    source: Literal["sudomock-studio"]
+    type: Literal["studio.mockup-saved", "studio.design-submitted"]
+    request_id: str
+    message_session_id: str
+    payload: StudioResultPayload
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+
+class StudioActionContext(TypedDict, total=False):
+    """Server-owned commerce context bound while consuming a Studio action."""
+
+    shop: str
+    product_id: str
+    variant_id: str
+
+
+class StudioActionContextData(_Outcome):
+    """Commerce context returned in a confirmed Studio action."""
+
+    shop: Optional[str] = None
+    product_id: Optional[str] = None
+    variant_id: Optional[str] = None
+
+
+class StudioActionReceiptData(_Outcome):
+    """Receipt bound to one session, render, action, and request."""
+
+    version: Literal[1]
+    request_id: str
+    message_session_id: str
+    type: Literal["studio.mockup-saved", "studio.design-submitted"]
+    mockup_type: Literal["psd", "2d"]
+    session_kind: Literal["setup", "customize"]
+    action_id: Optional[str] = None
+    action_context: StudioActionContextData
+    mockup_uuid: str
+    render_uuid: str
+
+
+class StudioActionReceipt(_Outcome):
+    """Exactly-once server confirmation result for one Studio event."""
+
+    success: Literal[True] = True
+    replayed: bool
+    receipt: StudioActionReceiptData
 
 
 # ---------------------------------------------------------------------------
@@ -139,11 +239,23 @@ class TextLayer(_Base):
     suggested_edit_together: Optional[list[str]] = None
 
 
-class ApiWarning(_Base):
+class ApiWarning(_Outcome):
     """A non-fatal advisory returned with a successful request."""
 
     code: str
     message: str
+
+    @model_validator(mode="after")
+    def hide_implementation_details(self) -> ApiWarning:
+        self.code = public_error_code(self.code) or "RENDER_WARNING"
+        self.message = (
+            public_error_text(
+                self.message,
+                "The request completed with an advisory.",
+            )
+            or "The request completed with an advisory."
+        )
+        return self
 
 
 class Mockup(_Base):
@@ -181,7 +293,7 @@ class MockupList(_Base):
 # ---------------------------------------------------------------------------
 
 
-class PrintFile(_Base):
+class PrintFile(_Outcome):
     """A single rendered output file.
 
     Returned by both the still-render path (``renders.create`` —
@@ -206,41 +318,11 @@ class PrintFile(_Base):
         return self.export_path
 
 
-class ResolvedFontInfo(_Base):
-    """Font used for a text override."""
-
-    family: Optional[str] = None
-    postscript_name: Optional[str] = None
-
-
-class TextSegmentRenderInfo(_Base):
-    """Font details for a rendered text segment."""
-
-    index: int
-    requested_font: Optional[str] = None
-    resolved_font: Optional[ResolvedFontInfo] = None
-    match_source: str
-    glyph_coverage_ok: bool = True
-
-
-class TextLayerRenderInfo(_Base):
-    """Font details for a rendered text layer."""
-
-    uuid: str
-    name: Optional[str] = None
-    requested_font: Optional[str] = None
-    resolved_font: Optional[ResolvedFontInfo] = None
-    match_source: str
-    glyph_coverage_ok: bool = True
-    segments: Optional[list[TextSegmentRenderInfo]] = None
-
-
-class Render(_Base):
+class Render(_Outcome):
     """Result of a render request."""
 
     print_files: list[PrintFile]
     render_uuid: Optional[str] = None
-    text_layers: Optional[list[TextLayerRenderInfo]] = None
     warnings: list[ApiWarning] = Field(default_factory=list)
 
     @property
@@ -256,7 +338,7 @@ class Render(_Base):
 # ---------------------------------------------------------------------------
 
 
-class AIRender(_Base):
+class AIRender(_Outcome):
     """Result of a SudoAI 2D-mockup render (``POST /sudoai/2d-mockups/{id}/render``).
 
     The 2D-render ``print_files`` carry ``export_path`` / ``duration_ms`` /
@@ -276,7 +358,7 @@ class AIRender(_Base):
         return self.print_files[0].url
 
 
-class Quad(_Base):
+class Quad(_Outcome):
     """A printable four-point area on a 2D mockup."""
 
     print_area_id: str
@@ -285,14 +367,23 @@ class Quad(_Base):
     name: Optional[str] = None
 
 
-class TwoDPrintAreasUpdate(_Base):
+class FullSurface(_Outcome):
+    """A full product surface available as a render target."""
+
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    surface_uuid: str
+    coverage: Literal["full"]
+
+
+class TwoDPrintAreasUpdate(_Outcome):
     """Updated geometry returned after replacing 2D print areas."""
 
     mockup_id: str
     print_areas: list[Quad] = Field(default_factory=list)
 
 
-class TwoDMockup(_Base):
+class TwoDMockup(_Outcome):
     """A SudoAI 2D mockup (``GET /sudoai/2d-mockups/{id}`` / list).
 
     The detail endpoint returns ``quads``; the list endpoint returns
@@ -302,17 +393,20 @@ class TwoDMockup(_Base):
     mockup_id: str
     name: Optional[str] = None
     status: Optional[str] = None
+    customizable: bool
     thumbnail_url: Optional[str] = None
     watermarked_source_url: Optional[str] = None
     source_width: Optional[int] = None
     source_height: Optional[int] = None
     quads: list[Quad] = Field(default_factory=list)
+    print_areas: list[Quad] = Field(default_factory=list)
+    surfaces: list[FullSurface] = Field(default_factory=list)
     version: Optional[int] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
 
-class TwoDMockupList(_Base):
+class TwoDMockupList(_Outcome):
     """Paginated list of SudoAI 2D mockups.
 
     The API returns ``{data: [...], total, limit, offset, success}``; the
@@ -330,11 +424,10 @@ class TwoDMockupList(_Base):
 # ---------------------------------------------------------------------------
 
 
-class BackgroundRemoval(_Base):
+class BackgroundRemoval(_Outcome):
     """Transparent-PNG cutout returned by ``POST /remove-background``.
 
-    ``url`` is signed and valid for 7 days; the cutout itself remains retained
-    for the account.
+    ``url`` is signed and valid for 7 days.
     """
 
     url: str
@@ -348,7 +441,7 @@ class BackgroundRemoval(_Base):
 # ---------------------------------------------------------------------------
 
 
-class JobAccepted(_Base):
+class JobAccepted(_Outcome):
     """Acknowledgement returned by a ``202 Accepted`` async submission.
 
     Returned by ``renders.create(..., is_async=True)``, ``psd.upload(...,
@@ -361,9 +454,11 @@ class JobAccepted(_Base):
     kind: Optional[str] = None
     status: Optional[str] = None
     status_url: Optional[str] = None
+    estimated_credits: Optional[int] = None
+    outcome_tier: Optional[str] = None
 
 
-class PaygCost(_Base):
+class PaygCost(_Outcome):
     """Pay-as-you-go cost breakdown for a job (only present on PAYG jobs).
 
     Mirrors the nested ``payg`` object in ``GET /api/v1/jobs/{job_id}``:
@@ -376,7 +471,7 @@ class PaygCost(_Base):
     cost: Optional[float] = None
 
 
-class Job(_Base):
+class Job(_Outcome):
     """Status of an async job from ``GET /api/v1/jobs/{job_id}``.
 
     The terminal states are ``"succeeded"`` and ``"failed"``; ``"queued"``
@@ -387,18 +482,44 @@ class Job(_Base):
     job_id: Optional[str] = None
     kind: Optional[str] = None
     status: str
-    model: Optional[str] = None
     result_url: Optional[str] = None
     mockup_uuid: Optional[str] = None
-    error: Optional[Union[str, dict[str, Any]]] = None
+    error: Optional[str] = None
+    error_code: Optional[str] = None
     # Real charge for the job. For credit/subscription jobs this is the
     # deducted credit count; for PAYG it is the billable credit count (NOT the
     # stored 0). The dollar amount lives in :attr:`payg`.
     credits_charged: Optional[int] = None
     # Nested cost breakdown, present only for PAYG jobs (else ``None``).
     payg: Optional[PaygCost] = None
+    duration_seconds: Optional[int] = None
+    audio: Optional[bool] = None
+    mockup_name: Optional[str] = None
+    poster_url: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def outcome_only_error(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+        public = dict(value)
+        error = public.get("error")
+        error_code = public.get("error_code")
+        if isinstance(error, dict):
+            error_code = error.get("error_code", error_code)
+            error = error.get("message") or error.get("reason")
+        public["error"] = public_error_text(
+            error,
+            (
+                "Processing failed. Retry or contact support with the job ID."
+                if public.get("status") == "failed"
+                else None
+            ),
+        )
+        public["error_code"] = public_error_code(error_code)
+        return public
 
     # Terminal-state helpers ------------------------------------------------
 
@@ -419,14 +540,7 @@ class Job(_Base):
 
     def failure_details(self) -> tuple[Optional[str], Optional[str]]:
         """Return the machine-readable code and human-readable failure reason."""
-        if isinstance(self.error, dict):
-            error_code = self.error.get("error_code")
-            reason = self.error.get("message") or self.error.get("reason")
-            return (
-                error_code if isinstance(error_code, str) else None,
-                reason if isinstance(reason, str) else None,
-            )
-        return None, self.error
+        return self.error_code, self.error
 
     @property
     def url(self) -> str:
@@ -438,13 +552,12 @@ class Job(_Base):
         return self.result_url
 
 
-class JobList(_Base):
+class JobList(_Outcome):
     """Keyset-paginated list of async jobs (``GET /api/v1/jobs``).
 
-    Each item carries the same fields as :class:`Job` plus display extras
-    (``duration_seconds``, ``audio``, ``mockup_name``, ``poster_url``) which are
-    accepted via ``extra='allow'``. Pass :attr:`next_cursor` back to
-    ``jobs.list(cursor=...)`` to fetch the next page (``None`` when exhausted).
+    Each item carries the same fields as :class:`Job`, including its documented
+    display fields. Pass :attr:`next_cursor` back to ``jobs.list(cursor=...)``
+    to fetch the next page (``None`` when exhausted).
     """
 
     jobs: list[Job] = Field(default_factory=list)
@@ -456,23 +569,20 @@ class JobList(_Base):
 # ---------------------------------------------------------------------------
 
 
-class VideoOptions(_Base):
+class VideoOptions(_Outcome):
     """Video generation options for ``renders.create_video``.
 
     Attributes:
-        duration_seconds: Clip length; must be in the chosen model's allowed
-            set or the API returns ``400`` (``INVALID_VIDEO_DURATION``). If
-            omitted at the API the server defaults to ``5`` seconds.
+        duration_seconds: Clip length; unsupported values return ``400``.
         audio: Whether to generate audio (default off).
         motion: Animation style, ``ambient`` (default) or ``showcase``.
-        advanced_model: Optional model override (otherwise auto-selected by
-            tier). When omitted the API picks the default for your plan.
     """
 
     duration_seconds: int
     audio: bool = False
     motion: Optional[str] = None
-    advanced_model: Optional[str] = None
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
 
 # ---------------------------------------------------------------------------
@@ -520,7 +630,7 @@ class WebhookSecret(_Base):
     secret: str
 
 
-class WebhookDelivery(_Base):
+class WebhookDelivery(_Outcome):
     """A single delivery-attempt log row.
 
     Mirrors the API's ``WebhookDeliveryResponse``: ``id`` is the row id,
@@ -538,6 +648,15 @@ class WebhookDelivery(_Base):
     last_error: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+
+    @model_validator(mode="after")
+    def hide_delivery_diagnostics(self) -> WebhookDelivery:
+        if self.last_error is not None:
+            self.last_error = public_error_text(
+                self.last_error,
+                "Delivery failed. Retry it or contact support with the delivery ID.",
+            )
+        return self
 
 
 class WebhookDeliveryList(_Base):

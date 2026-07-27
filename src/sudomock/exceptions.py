@@ -29,7 +29,7 @@ class SudoMockError(Exception):
         message: Human-readable error description.
         status_code: HTTP status code that triggered this error, if any.
         error_code: Machine-readable code returned by the API, if any.
-        body: Raw response body (parsed JSON or string), if available.
+        body: Filtered public error fields, if available.
     """
 
     def __init__(

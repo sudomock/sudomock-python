@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import pytest
+from pydantic import ValidationError as PydanticValidationError
 
 from sudomock.models import (
     Account,
     AccountInfo,
     AIRender,
     ApiKeyInfo,
+    ApiWarning,
+    FullSurface,
     Job,
     JobAccepted,
     Mockup,
@@ -17,12 +20,90 @@ from sudomock.models import (
     Render,
     Size,
     SmartObject,
+    StudioResultEvent,
+    StudioResultPayload,
+    StudioSession,
     Subscription,
+    TwoDMockup,
     Usage,
     VideoOptions,
     WebhookDelivery,
     WebhookEndpoint,
 )
+
+
+class TestApiWarning:
+    def test_hides_implementation_diagnostics(self) -> None:
+        warning = ApiWarning(
+            code="MODEL_PROMPT_FALLBACK",
+            message="Private model prompt failed for mask_uuid.",
+        )
+
+        assert warning.model_dump() == {
+            "code": "PROCESSING_FAILED",
+            "message": "The request completed with an advisory.",
+        }
+
+
+class TestStudioModels:
+    def test_result_payload_contains_only_opaque_outcome_handles(self) -> None:
+        payload = StudioResultPayload(mockup_uuid="mockup", render_uuid="render")
+
+        assert payload.model_dump(exclude_none=True) == {
+            "mockup_uuid": "mockup",
+            "render_uuid": "render",
+        }
+        with pytest.raises(PydanticValidationError):
+            StudioResultPayload(
+                mockup_uuid="mockup",
+                render_uuid="render",
+                private_field=3,
+            )
+
+    def test_setup_result_uses_the_same_outcome_payload(self) -> None:
+        event = StudioResultEvent(
+            version=1,
+            source="sudomock-studio",
+            type="studio.mockup-saved",
+            request_id="request",
+            message_session_id="session",
+            payload=StudioResultPayload(
+                mockup_uuid="mockup",
+                render_uuid="render",
+            ),
+        )
+        assert event.payload.render_uuid == "render"
+
+    def test_session_has_only_required_handshake_fields(self) -> None:
+        fields = {
+            "success": True,
+            "mockup_type": "psd",
+            "session": "session",
+            "expires_in": 900,
+            "message_session_id": "message-session",
+            "bootstrap_secret": "secret",
+        }
+        session = StudioSession(**fields)
+
+        assert session.model_dump() == fields
+
+
+class TestTwoDModels:
+    def test_product_surface_uses_only_public_outcome_fields(self) -> None:
+        surface = FullSurface.model_validate({"surface_uuid": "surface-1", "coverage": "full"})
+
+        assert surface.model_dump() == {
+            "surface_uuid": "surface-1",
+            "coverage": "full",
+        }
+        assert set(FullSurface.model_json_schema()["properties"]) == {
+            "surface_uuid",
+            "coverage",
+        }
+
+    def test_customizable_is_required(self) -> None:
+        with pytest.raises(PydanticValidationError):
+            TwoDMockup(mockup_id="mockup")
 
 
 class TestAccount:
@@ -104,6 +185,18 @@ class TestSmartObject:
         assert so.size is not None
         assert so.size.width == 800
 
+    def test_preserves_customer_metadata_and_drops_engine_fields(self) -> None:
+        so = SmartObject.model_validate(
+            {
+                "uuid": "so-1",
+                "quad": [[0, 0], [1, 0], [1, 1], [0, 1]],
+                "mask_uuid": "private-surface",
+            }
+        )
+
+        assert so.quad == [[0, 0], [1, 0], [1, 1], [0, 1]]
+        assert "mask_uuid" not in so.model_dump()
+
 
 class TestMockup:
     def test_parse(self) -> None:
@@ -116,6 +209,19 @@ class TestMockup:
         )
         assert m.name == "T-Shirt"
         assert len(m.smart_objects) == 1
+
+    def test_drops_top_level_engine_fields(self) -> None:
+        mockup = Mockup.model_validate(
+            {
+                "uuid": "m-1",
+                "name": "T-Shirt",
+                "model": "private-engine",
+                "private_storage_key": "private/path",
+            }
+        )
+
+        assert "model" not in mockup.model_dump()
+        assert "private_storage_key" not in mockup.model_dump()
 
     def test_empty_smart_objects(self) -> None:
         m = Mockup(uuid="m-1", name="Empty")
@@ -270,7 +376,7 @@ class TestJob:
             "NOT_MOCKUPABLE",
             "The source image is not suitable for a 2D mockup",
         )
-        assert not {"error_code", "reason", "message"} & Job.model_fields.keys()
+        assert job.error_code == "NOT_MOCKUPABLE"
 
     def test_url_without_result_raises(self) -> None:
         job = Job(status="running")
@@ -283,7 +389,13 @@ class TestVideoOptions:
         v = VideoOptions(duration_seconds=5)
         assert v.duration_seconds == 5
         assert v.audio is False
-        assert v.advanced_model is None
+
+    def test_rejects_undocumented_quality_overrides(self) -> None:
+        with pytest.raises(PydanticValidationError):
+            VideoOptions(
+                duration_seconds=4,
+                advanced_model="private",  # type: ignore[call-arg]
+            )
 
 
 class TestWebhookModels:
