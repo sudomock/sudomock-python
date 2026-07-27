@@ -121,7 +121,7 @@ class TestJobs:
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
             job = client.jobs.get("job-1")
         assert job.failed
-        assert job.error == "render engine error"
+        assert job.error == "Processing failed. Retry or contact support with the job ID."
         with pytest.raises(ValueError, match="no result_url"):
             _ = job.url
 
@@ -162,7 +162,6 @@ class TestVideo:
                 smart_objects=_SO,
                 duration_seconds=5,
                 audio=True,
-                advanced_model="veo-3.1-fast",
             )
 
         assert isinstance(result, JobAccepted)
@@ -171,17 +170,24 @@ class TestVideo:
         body = json.loads(route.calls.last.request.content)
         assert body["video"]["duration_seconds"] == 5
         assert body["video"]["audio"] is True
-        assert body["video"]["advanced_model"] == "veo-3.1-fast"
 
-    def test_create_video_no_model_omits_key(self, mock_api: respx.MockRouter) -> None:
+    def test_create_video_uses_only_public_options(self, mock_api: respx.MockRouter) -> None:
         route = mock_api.post("/api/v1/renders/video").mock(
             return_value=httpx.Response(202, json=MOCK_VIDEO_JOB_ACCEPTED_RESPONSE)
         )
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
-            client.renders.create_video(mockup_uuid="m-1", smart_objects=_SO, duration_seconds=4)
+            client.renders.create_video(
+                mockup_uuid="m-1",
+                smart_objects=_SO,
+                duration_seconds=4,
+                webhook={
+                    "url": "https://example.com/hook",
+                    "private_option": "discarded",
+                },
+            )
         body = json.loads(route.calls.last.request.content)
-        assert "advanced_model" not in body["video"]
-        assert body["video"]["audio"] is False
+        assert body["video"] == {"duration_seconds": 4, "audio": False}
+        assert body["webhook"] == {"url": "https://example.com/hook"}
 
     def test_create_video_bad_duration_422(self, mock_api: respx.MockRouter) -> None:
         mock_api.post("/api/v1/renders/video").mock(

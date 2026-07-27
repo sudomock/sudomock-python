@@ -110,11 +110,18 @@ class TestAsyncVideo:
         )
         async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
             result = await client.renders.create_video(
-                mockup_uuid="m-1", smart_objects=_SO, duration_seconds=5
+                mockup_uuid="m-1",
+                smart_objects=_SO,
+                duration_seconds=5,
+                webhook={
+                    "url": "https://example.com/hook",
+                    "private_option": "discarded",
+                },
             )
         assert isinstance(result, JobAccepted)
         body = json.loads(route.calls.last.request.content)
         assert body["video"]["duration_seconds"] == 5
+        assert body["webhook"] == {"url": "https://example.com/hook"}
 
 
 class TestAsyncPsd:

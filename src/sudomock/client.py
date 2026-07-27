@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import os
 import time
-from typing import Any, Optional, Union
+from typing import Any, Literal, Optional, Union
 from uuid import uuid4
 
 from ._http import (
@@ -28,6 +28,7 @@ from ._http import (
     DEFAULT_TIMEOUT,
     SyncTransport,
 )
+from ._public_contract import public_2d_render_targets
 from .exceptions import JobFailedError, JobTimeoutError, SudoMockError
 from .models import (
     AccountInfo,
@@ -40,6 +41,11 @@ from .models import (
     MockupList,
     PlanList,
     Render,
+    StudioActionContext,
+    StudioActionReceipt,
+    StudioResultEvent,
+    StudioSession,
+    StudioSessionUi,
     TwoDMockup,
     TwoDMockupList,
     TwoDPrintAreasUpdate,
@@ -229,7 +235,6 @@ class _RendersResource:
         duration_seconds: int,
         audio: bool = False,
         motion: Optional[str] = None,
-        advanced_model: Optional[str] = None,
         export_options: Optional[dict[str, Any]] = None,
         webhook: Optional[dict[str, Any]] = None,
     ) -> JobAccepted:
@@ -237,14 +242,14 @@ class _RendersResource:
 
         Two **mutually exclusive** input modes:
 
-        * **Render mode** -- pass ``mockup_uuid`` + ``smart_objects``; the worker
-          renders the input still, then animates it.
+        * **Render mode** -- pass ``mockup_uuid`` + ``smart_objects`` to animate
+          the rendered mockup.
         * **Raw-image mode** -- pass ``image_url`` (public https); the URL is
           animated directly. ``mockup_uuid`` is then an optional association.
 
         The first video render on a free plan is granted once for the lifetime
-        of the account. Credit cost is computed from the chosen model, the
-        ``duration_seconds`` and whether ``audio`` is enabled.
+        of the account. Credit cost is computed from ``duration_seconds``,
+        whether ``audio`` is enabled, and the automatically selected quality.
 
         Args:
             mockup_uuid: UUID of the mockup to animate (render mode; optional
@@ -253,14 +258,9 @@ class _RendersResource:
                 as :meth:`create`).
             image_url: Public https image URL to animate directly (raw-image
                 mode).
-            duration_seconds: Clip length. Must be one of the chosen model's
-                allowed durations, otherwise the API returns ``400``
-                (``INVALID_VIDEO_DURATION``). The server defaults to ``5``
-                seconds when the field is omitted.
+            duration_seconds: Clip length. Unsupported values return ``400``.
             audio: Whether to generate audio (default off).
             motion: Animation style, ``ambient`` (default) or ``showcase``.
-            advanced_model: Optional model override; otherwise auto-selected
-                by your plan tier.
             export_options: Optional export settings (render-mode still config).
             webhook: Optional per-job webhook override, e.g.
                 ``{"url": "https://your-app.com/hook"}``.
@@ -273,7 +273,7 @@ class _RendersResource:
             ValueError: If neither ``image_url`` nor ``mockup_uuid`` is given.
             InsufficientCreditsError: If credits are exhausted / free video
                 already used.
-            ValidationError: If ``duration_seconds`` is not allowed for the model.
+            ValidationError: If ``duration_seconds`` is unsupported.
         """
         if image_url is None and mockup_uuid is None:
             raise ValueError(
@@ -281,15 +281,11 @@ class _RendersResource:
                 "mockup_uuid (render mode)."
             )
 
-        # Validate + serialize the animation options through the typed model so
-        # the public VideoOptions surface is the single source of truth. Unset
-        # optionals (motion / advanced_model) are dropped, matching the API's
-        # "omit = use default" contract.
+        # Validate and serialize the documented animation options.
         video = VideoOptions(
             duration_seconds=duration_seconds,
             audio=audio,
             motion=motion,
-            advanced_model=advanced_model,
         ).model_dump(exclude_none=True)
 
         body: dict[str, Any] = {"video": video}
@@ -302,7 +298,7 @@ class _RendersResource:
         if export_options is not None:
             body["export_options"] = export_options
         if webhook is not None:
-            body["webhook"] = webhook
+            body["webhook"] = {"url": webhook["url"]}
 
         resp = self._transport.request(
             "POST",
@@ -724,8 +720,10 @@ class _AIResource:
 
         Args:
             mockup_id: 2D mockup identifier.
-            print_areas: One to eight print areas, each with four ``[x, y]``
-                points and an optional ``name``.
+            print_areas: Up to eight print areas, each with four ``[x, y]``
+                points and an optional ``name``. An empty list is accepted only
+                when the API has verified every product surface as full
+                coverage.
 
         Returns:
             The updated print-area geometry.
@@ -756,9 +754,10 @@ class _AIResource:
         Args:
             mockup_uuid: UUID of a previously-created 2D mockup (see
                 :meth:`list` / :meth:`get`).
-            print_areas: One or more print-area configs. Each is a dict with a
-                required ``uuid`` (the ``print_area_id`` from create/get) plus
-                ``base64`` (raw base64 artwork bytes), ``artwork_url``, and/or
+            print_areas: One or more target configs. Each is a dict with
+                exactly one identifier: ``uuid`` for a saved print area or
+                ``surface_uuid`` for a full product surface. Add ``base64``
+                (raw base64 artwork bytes), ``artwork_url``, and/or
                 ``color`` (hex), and optional ``adjustments`` / ``placement`` /
                 ``remove_background``. At least one of ``base64``,
                 ``artwork_url`` or ``color`` must be supplied per area. Setting
@@ -783,7 +782,7 @@ class _AIResource:
             ValidationError: If ``print_areas`` is empty or malformed.
         """
         body: dict[str, Any] = {
-            "print_areas": print_areas,
+            "print_areas": public_2d_render_targets(print_areas),
         }
         if export_options is not None:
             body["export_options"] = export_options
@@ -808,12 +807,14 @@ class _AIResource:
         *,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
+        customizable_only: Optional[bool] = None,
     ) -> TwoDMockupList:
         """List your SudoAI 2D mockups (free; zero credits).
 
         Args:
             limit: Page size, 1..100 (default server-side: 20).
             offset: Pagination offset.
+            customizable_only: Return only mockups ready for shopper customization.
 
         Returns:
             :class:`TwoDMockupList` with ``mockups``, ``total``, ``limit``,
@@ -822,7 +823,11 @@ class _AIResource:
         resp = self._transport.request(
             "GET",
             "/api/v1/sudoai/2d-mockups",
-            params={"limit": limit, "offset": offset},
+            params={
+                "limit": limit,
+                "offset": offset,
+                "customizable_only": customizable_only,
+            },
         )
         payload = resp.json()
         return TwoDMockupList(
@@ -866,8 +871,8 @@ class _ImagesResource:
         """Remove the background from an image (costs 25 credits).
 
         Returns a signed transparent-PNG cutout URL valid for 7 days, ready to
-        hand back to a render as artwork. The cutout itself remains retained for
-        the account. To clean artwork inline during a render instead, set
+        hand back to a render as artwork. To clean artwork inline during a
+        render instead, set
         ``"remove_background": True`` on the render asset
         (:meth:`SudoMock.renders.create`) or print area
         (:meth:`SudoMock.ai.render`).
@@ -944,6 +949,82 @@ class _PackagesResource:
         return PlanList.model_validate(resp.json())
 
 
+class _StudioResource:
+    """Embedded Studio session creation."""
+
+    def __init__(self, transport: SyncTransport) -> None:
+        self._transport = transport
+
+    def create_session(
+        self,
+        *,
+        allowed_origin: str,
+        mockup_type: Literal["psd", "2d"] = "psd",
+        session_kind: Literal["setup", "customize"] = "customize",
+        mockup_uuid: Optional[str] = None,
+        product_id: Optional[str] = None,
+        variant_id: Optional[str] = None,
+        ui: Optional[StudioSessionUi] = None,
+        action_id: Optional[str] = None,
+    ) -> StudioSession:
+        public_ui: Optional[StudioSessionUi] = None
+        if ui is not None:
+            public_ui = {}
+            if "primary_action_label" in ui:
+                public_ui["primary_action_label"] = ui["primary_action_label"]
+            if "secondary_action_label" in ui:
+                public_ui["secondary_action_label"] = ui["secondary_action_label"]
+            if "accent_color" in ui:
+                public_ui["accent_color"] = ui["accent_color"]
+        body = {
+            key: value
+            for key, value in {
+                "mockup_type": mockup_type,
+                "session_kind": session_kind,
+                "mockup_uuid": mockup_uuid,
+                "allowed_origin": allowed_origin,
+                "product_id": product_id,
+                "variant_id": variant_id,
+                "ui": public_ui,
+                "action_id": action_id,
+            }.items()
+            if value is not None
+        }
+        response = self._transport.request("POST", "/api/v1/studio/create-session", json=body)
+        return StudioSession.model_validate(response.json())
+
+    def consume_action(
+        self,
+        event: StudioResultEvent,
+        *,
+        action_context: Optional[StudioActionContext] = None,
+    ) -> StudioActionReceipt:
+        """Confirm one iframe result before saving or adding it to a cart."""
+        public_context: StudioActionContext = {}
+        if action_context is not None:
+            if "shop" in action_context:
+                public_context["shop"] = action_context["shop"]
+            if "product_id" in action_context:
+                public_context["product_id"] = action_context["product_id"]
+            if "variant_id" in action_context:
+                public_context["variant_id"] = action_context["variant_id"]
+        response = self._transport.request(
+            "POST",
+            "/api/v1/studio/actions/consume",
+            json={
+                "version": event.version,
+                "request_id": event.request_id,
+                "message_session_id": event.message_session_id,
+                "type": event.type,
+                "payload": {
+                    **event.payload.model_dump(exclude_none=True),
+                    "action_context": public_context,
+                },
+            },
+        )
+        return StudioActionReceipt.model_validate(response.json())
+
+
 class SudoMock:
     """Synchronous client for the SudoMock API.
 
@@ -1006,6 +1087,7 @@ class SudoMock:
         self.ai = _AIResource(self._transport)
         self.images = _ImagesResource(self._transport)
         self.account = _AccountResource(self._transport)
+        self.studio = _StudioResource(self._transport)
         self.packages = _PackagesResource(self._transport)
         self.webhook_endpoints = _WebhookEndpointsResource(self._transport)
 

@@ -34,7 +34,7 @@ from __future__ import annotations
 import asyncio
 import os
 import time
-from typing import Any, Optional, Union
+from typing import Any, Literal, Optional, Union
 from uuid import uuid4
 
 from ._http import (
@@ -44,6 +44,7 @@ from ._http import (
     DEFAULT_TIMEOUT,
     AsyncTransport,
 )
+from ._public_contract import public_2d_render_targets
 from .exceptions import JobFailedError, JobTimeoutError, SudoMockError
 from .models import (
     AccountInfo,
@@ -56,6 +57,11 @@ from .models import (
     MockupList,
     PlanList,
     Render,
+    StudioActionContext,
+    StudioActionReceipt,
+    StudioResultEvent,
+    StudioSession,
+    StudioSessionUi,
     TwoDMockup,
     TwoDMockupList,
     TwoDPrintAreasUpdate,
@@ -241,7 +247,6 @@ class _AsyncRendersResource:
         duration_seconds: int,
         audio: bool = False,
         motion: Optional[str] = None,
-        advanced_model: Optional[str] = None,
         export_options: Optional[dict[str, Any]] = None,
         webhook: Optional[dict[str, Any]] = None,
     ) -> JobAccepted:
@@ -259,7 +264,7 @@ class _AsyncRendersResource:
         Raises:
             ValueError: If neither ``image_url`` nor ``mockup_uuid`` is given.
             InsufficientCreditsError: If credits are exhausted / free video used.
-            ValidationError: If ``duration_seconds`` is not allowed for the model.
+            ValidationError: If ``duration_seconds`` is unsupported.
         """
         if image_url is None and mockup_uuid is None:
             raise ValueError(
@@ -267,15 +272,11 @@ class _AsyncRendersResource:
                 "mockup_uuid (render mode)."
             )
 
-        # Validate + serialize the animation options through the typed model so
-        # the public VideoOptions surface is the single source of truth. Unset
-        # optionals (motion / advanced_model) are dropped, matching the API's
-        # "omit = use default" contract.
+        # Validate and serialize the documented animation options.
         video = VideoOptions(
             duration_seconds=duration_seconds,
             audio=audio,
             motion=motion,
-            advanced_model=advanced_model,
         ).model_dump(exclude_none=True)
 
         body: dict[str, Any] = {"video": video}
@@ -288,7 +289,7 @@ class _AsyncRendersResource:
         if export_options is not None:
             body["export_options"] = export_options
         if webhook is not None:
-            body["webhook"] = webhook
+            body["webhook"] = {"url": webhook["url"]}
 
         resp = await self._transport.request(
             "POST",
@@ -676,7 +677,11 @@ class _AsyncAIResource:
         mockup_id: str,
         print_areas: list[dict[str, Any]],
     ) -> TwoDPrintAreasUpdate:
-        """Replace a 2D mockup's print areas (free; zero credits)."""
+        """Replace up to eight print areas.
+
+        An empty list is accepted only when the API has verified every product
+        surface as full coverage.
+        """
         resp = await self._transport.request(
             "PUT",
             f"/api/v1/sudoai/2d-mockups/{mockup_id}/print-areas",
@@ -703,9 +708,10 @@ class _AsyncAIResource:
         Args:
             mockup_uuid: UUID of a previously-created 2D mockup (see
                 :meth:`list` / :meth:`get`).
-            print_areas: One or more print-area configs. Each is a dict with a
-                required ``uuid`` (the ``print_area_id`` from create/get) plus
-                ``base64`` (raw base64 artwork bytes), ``artwork_url``, and/or
+            print_areas: One or more target configs. Each is a dict with
+                exactly one identifier: ``uuid`` for a saved print area or
+                ``surface_uuid`` for a full product surface. Add ``base64``
+                (raw base64 artwork bytes), ``artwork_url``, and/or
                 ``color`` (hex), and optional ``adjustments`` / ``placement`` /
                 ``remove_background``. Setting ``"remove_background": True``
                 isolates the artwork's subject onto a clean transparent cutout
@@ -729,7 +735,7 @@ class _AsyncAIResource:
             ValidationError: If ``print_areas`` is empty or malformed.
         """
         body: dict[str, Any] = {
-            "print_areas": print_areas,
+            "print_areas": public_2d_render_targets(print_areas),
         }
         if export_options is not None:
             body["export_options"] = export_options
@@ -754,12 +760,17 @@ class _AsyncAIResource:
         *,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
+        customizable_only: Optional[bool] = None,
     ) -> TwoDMockupList:
         """List your SudoAI 2D mockups (free; zero credits)."""
         resp = await self._transport.request(
             "GET",
             "/api/v1/sudoai/2d-mockups",
-            params={"limit": limit, "offset": offset},
+            params={
+                "limit": limit,
+                "offset": offset,
+                "customizable_only": customizable_only,
+            },
         )
         payload = resp.json()
         return TwoDMockupList(
@@ -803,8 +814,8 @@ class _AsyncImagesResource:
         """Remove the background from an image (costs 25 credits).
 
         Returns a signed transparent-PNG cutout URL valid for 7 days, ready to
-        hand back to a render as artwork. The cutout itself remains retained for
-        the account. To clean artwork inline during a render instead, set
+        hand back to a render as artwork. To clean artwork inline during a
+        render instead, set
         ``"remove_background": True`` on the render asset
         (:meth:`renders.create`) or print area (:meth:`ai.render`).
 
@@ -880,6 +891,82 @@ class _AsyncPackagesResource:
         return PlanList.model_validate(resp.json())
 
 
+class _AsyncStudioResource:
+    """Async embedded Studio session creation."""
+
+    def __init__(self, transport: AsyncTransport) -> None:
+        self._transport = transport
+
+    async def create_session(
+        self,
+        *,
+        allowed_origin: str,
+        mockup_type: Literal["psd", "2d"] = "psd",
+        session_kind: Literal["setup", "customize"] = "customize",
+        mockup_uuid: Optional[str] = None,
+        product_id: Optional[str] = None,
+        variant_id: Optional[str] = None,
+        ui: Optional[StudioSessionUi] = None,
+        action_id: Optional[str] = None,
+    ) -> StudioSession:
+        public_ui: Optional[StudioSessionUi] = None
+        if ui is not None:
+            public_ui = {}
+            if "primary_action_label" in ui:
+                public_ui["primary_action_label"] = ui["primary_action_label"]
+            if "secondary_action_label" in ui:
+                public_ui["secondary_action_label"] = ui["secondary_action_label"]
+            if "accent_color" in ui:
+                public_ui["accent_color"] = ui["accent_color"]
+        body = {
+            key: value
+            for key, value in {
+                "mockup_type": mockup_type,
+                "session_kind": session_kind,
+                "mockup_uuid": mockup_uuid,
+                "allowed_origin": allowed_origin,
+                "product_id": product_id,
+                "variant_id": variant_id,
+                "ui": public_ui,
+                "action_id": action_id,
+            }.items()
+            if value is not None
+        }
+        response = await self._transport.request("POST", "/api/v1/studio/create-session", json=body)
+        return StudioSession.model_validate(response.json())
+
+    async def consume_action(
+        self,
+        event: StudioResultEvent,
+        *,
+        action_context: Optional[StudioActionContext] = None,
+    ) -> StudioActionReceipt:
+        """Confirm one iframe result before saving or adding it to a cart."""
+        public_context: StudioActionContext = {}
+        if action_context is not None:
+            if "shop" in action_context:
+                public_context["shop"] = action_context["shop"]
+            if "product_id" in action_context:
+                public_context["product_id"] = action_context["product_id"]
+            if "variant_id" in action_context:
+                public_context["variant_id"] = action_context["variant_id"]
+        response = await self._transport.request(
+            "POST",
+            "/api/v1/studio/actions/consume",
+            json={
+                "version": event.version,
+                "request_id": event.request_id,
+                "message_session_id": event.message_session_id,
+                "type": event.type,
+                "payload": {
+                    **event.payload.model_dump(exclude_none=True),
+                    "action_context": public_context,
+                },
+            },
+        )
+        return StudioActionReceipt.model_validate(response.json())
+
+
 class AsyncSudoMock:
     """Asynchronous client for the SudoMock API.
 
@@ -937,6 +1024,7 @@ class AsyncSudoMock:
         self.ai = _AsyncAIResource(self._transport)
         self.images = _AsyncImagesResource(self._transport)
         self.account = _AsyncAccountResource(self._transport)
+        self.studio = _AsyncStudioResource(self._transport)
         self.packages = _AsyncPackagesResource(self._transport)
         self.webhook_endpoints = _AsyncWebhookEndpointsResource(self._transport)
 

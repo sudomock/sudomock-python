@@ -22,6 +22,7 @@ from tenacity import (
     wait_exponential,
 )
 
+from ._public_contract import public_error_code, public_error_text
 from .exceptions import (
     AuthenticationError,
     InsufficientCreditsError,
@@ -64,26 +65,39 @@ def _raise_for_status(response: httpx.Response) -> None:
 
     status = response.status_code
 
-    # Try to parse JSON body for error details
-    body: Any = None
-    detail = f"HTTP {status}"
+    # Parse the response, then keep only documented public error fields.
+    raw_body: Any = None
+    raw_detail: Any = f"HTTP {status}"
     try:
-        body = response.json()
-        detail = body.get("detail", detail) if isinstance(body, dict) else detail
+        raw_body = response.json()
+        raw_detail = (
+            raw_body.get("detail", raw_body.get("message", raw_detail))
+            if isinstance(raw_body, dict)
+            else raw_detail
+        )
     except Exception:
-        body = response.text or None
+        raw_body = response.text or None
 
-    error_code = body.get("error_code") if isinstance(body, dict) else None
-    if not isinstance(error_code, str):
-        error_code = None
+    fallback_detail = (
+        "SudoMock could not complete the request. Retry shortly."
+        if status >= 500
+        else "The request could not be completed."
+    )
+    detail = public_error_text(raw_detail, fallback_detail) or fallback_detail
+    error_code = public_error_code(
+        raw_body.get("error_code") if isinstance(raw_body, dict) else None
+    )
+    body: dict[str, Any] = {"detail": detail, "success": False}
+    if error_code is not None:
+        body["error_code"] = error_code
+    if isinstance(raw_body, dict) and isinstance(raw_body.get("credits_reset_at"), str):
+        body["credits_reset_at"] = raw_body["credits_reset_at"]
 
     if status == 401:
         raise AuthenticationError(detail, status_code=status, error_code=error_code, body=body)
 
     if status == 402:
-        credits_reset_at = None
-        if isinstance(body, dict):
-            credits_reset_at = body.get("credits_reset_at")
+        credits_reset_at = body.get("credits_reset_at")
         raise InsufficientCreditsError(
             detail,
             status_code=status,
@@ -100,8 +114,8 @@ def _raise_for_status(response: httpx.Response) -> None:
 
     if status == 429:
         retry_after: Optional[float] = None
-        if isinstance(body, dict):
-            error_obj = body.get("error")
+        if isinstance(raw_body, dict):
+            error_obj = raw_body.get("error")
             if isinstance(error_obj, dict):
                 retry_after = error_obj.get("retry_after")
         raise RateLimitError(

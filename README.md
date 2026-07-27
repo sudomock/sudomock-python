@@ -98,6 +98,9 @@ Create a 2D mockup from a product image, wait until its print areas are ready,
 then render your artwork. Creation costs 25 credits and rendering costs 5 credits.
 Unsuccessful creations are refunded automatically.
 
+`customizable` is always a boolean, and `surfaces` and `print_areas` are typed
+lists. Each full surface exposes `surface_uuid` and `coverage="full"`.
+
 ```python
 from sudomock import SudoMock
 
@@ -118,6 +121,16 @@ render = client.ai.render(
     }],
 )
 print(render.url)
+
+# A full product surface can be rendered directly with its surface UUID.
+if mockup.surfaces:
+    render = client.ai.render(
+        mockup_uuid=mockup.mockup_id,
+        print_areas=[{
+            "surface_uuid": mockup.surfaces[0].surface_uuid,
+            "artwork_url": "https://example.com/your-design.png",
+        }],
+    )
 
 # Async variant: submit to the server queue and poll (returns a JobAccepted)
 job = client.ai.render(
@@ -165,17 +178,16 @@ else:
 
 Animate a mockup into an AI video. Video renders are always async (return a
 `JobAccepted`). The first video render on a free plan is granted once for the
-account's lifetime. `duration_seconds` must be a value allowed by the chosen
-model (otherwise the API returns `422`).
+account's lifetime. Unsupported `duration_seconds` values return `400`;
+quality selection is automatic.
 
 ```python
 job = client.renders.create_video(
     mockup_uuid="...",
     smart_objects=[{"uuid": "...", "asset": {"url": "https://example.com/d.png"}}],
-    duration_seconds=5,
+    duration_seconds=4,
     audio=False,
     motion="ambient",               # optional; "ambient" (default) or "showcase"
-    advanced_model="veo-3.1-fast",  # optional; otherwise auto-selected by tier
 )
 video = client.jobs.wait(job.job_id)
 print(video.url)
@@ -183,17 +195,16 @@ print(video.url)
 # Raw-image mode: animate a public image URL directly (no mockup render step)
 job = client.renders.create_video(
     image_url="https://example.com/product.jpg",
-    duration_seconds=5,
+    duration_seconds=4,
 )
 ```
 
 ## Background Removal
 
-Remove the background from an image; returns a signed transparent-PNG cutout URL
-valid for 7 days that you can hand straight back to a render as artwork. The
-cutout itself remains retained for your account. Supply exactly one of `url` or
-`base64`. Costs **25 credits** per image; credits are refunded automatically if
-processing fails.
+Remove the background from an image; returns a reusable transparent-PNG URL
+valid for 7 days that you can hand straight back to a render as artwork.
+Supply exactly one of `url` or `base64`. Costs **25 credits** per image;
+credits are refunded automatically if processing fails.
 
 ```python
 cutout = client.images.remove_background(url="https://example.com/product-photo.jpg")
@@ -327,6 +338,59 @@ except SudoMockError as e:
     print(f"Unexpected error: {e.message} (HTTP {e.status_code}, code={e.error_code})")
 ```
 
+## Studio
+
+```python
+product_id = "product-123"
+variant_id = "variant-456"
+
+session = client.studio.create_session(
+    mockup_type="2d",
+    session_kind="customize",
+    mockup_uuid="11111111-1111-4111-8111-111111111111",
+    allowed_origin="https://shop.example",
+    product_id=product_id,
+    variant_id=variant_id,
+    action_id="add-to-cart",
+    ui={
+        "primary_action_label": "Add to cart",
+        "secondary_action_label": "Preview",
+        "accent_color": "#3366FF",
+    },
+)
+
+# Open studio.sudomock.com/editor?session=<session.session> in your iframe.
+# Keep session.bootstrap_secret on the trusted parent page for the required handshake.
+```
+
+`allowed_origin`, `product_id`, and `variant_id` work for both PSD and 2D
+sessions. PSD supports `customize`; 2D supports `setup` and `customize`.
+Every response includes `session`, `expires_in`, `message_session_id`, and
+`bootstrap_secret`.
+Never put the bootstrap secret in the iframe URL or logs.
+
+Setup emits `studio.mockup-saved`; customize emits
+`studio.design-submitted`. Every result carries stable `mockup_uuid` and
+`render_uuid`, plus the optional `action_id`. Treat `render_uuid` as the opaque
+confirmation handle; the parent page does not receive editor revision state.
+
+On your server, confirm that browser event before saving the mockup or adding
+anything to a cart:
+
+```python
+receipt = client.studio.consume_action(
+    event,
+    action_context={
+        "product_id": product_id,
+        "variant_id": variant_id,
+    },
+)
+```
+
+The action context must exactly match the values used to create the session.
+The typed receipt is bound to the session, render, API key owner, and context,
+and can be consumed only once.
+
 ## Account & Credits
 
 ```python
@@ -373,7 +437,7 @@ client = SudoMock(
 | Method | Description |
 |--------|-------------|
 | `client.renders.create(mockup_uuid=, smart_objects=None, text_layers=None, export_options=, export_label=, is_async=False)` | Render artwork, text replacements, or both (sync `Render`, or `JobAccepted` when `is_async=True`) |
-| `client.renders.create_video(mockup_uuid=, smart_objects=, image_url=, duration_seconds=, audio=False, motion=None, advanced_model=None, webhook=None, ...)` | AI video render (always async, returns `JobAccepted`). Render mode (`mockup_uuid`+`smart_objects`) or raw-image mode (`image_url`) |
+| `client.renders.create_video(mockup_uuid=, smart_objects=, image_url=, duration_seconds=, audio=False, motion=None, webhook=None, ...)` | AI video render (always async, returns `JobAccepted`). Render mode (`mockup_uuid`+`smart_objects`) or raw-image mode (`image_url`) |
 
 ### Jobs
 
@@ -397,7 +461,7 @@ client = SudoMock(
 | `client.ai.wait_for_2d_mockup(job_id, poll_interval=2.0, timeout=180.0)` | Wait for an `is_async=True` creation and return the full 2D mockup |
 | `client.ai.update_2d_print_areas(mockup_id, print_areas)` | Replace a 2D mockup's print areas (free) |
 | `client.ai.render(mockup_uuid=, print_areas=, export_options=, is_async=False)` | Render artwork onto a 2D mockup (5 credits; sync `AIRender` with `render_uuid` by default, or `JobAccepted` when `is_async=True`) |
-| `client.ai.list(limit=, offset=)` | List your 2D mockups |
+| `client.ai.list(limit=, offset=, customizable_only=)` | List your 2D mockups; set `customizable_only=True` for shopper-ready items |
 | `client.ai.get(mockup_id)` | Get a 2D mockup |
 | `client.ai.delete(mockup_id)` | Delete a 2D mockup |
 

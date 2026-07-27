@@ -5,7 +5,41 @@ All notable changes to the `sudomock` Python SDK are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## [0.8.0] - 2026-07-27
+
+### Added
+
+- Studio result events can be confirmed server-side with
+  `client.studio.consume_action(...)` on both sync and async clients.
+- 2D full product surfaces are typed as `FullSurface` and can be rendered with
+  `surface_uuid`; saved print areas continue to use `uuid`.
+- 2D list/detail results expose `mockup.customizable`; pass
+  `customizable_only=True` to list only shopper-ready mockups.
+
+### Changed
+
+- `update_2d_print_areas(mockup_id, [])` forwards the empty representation. The
+  API accepts it only for verified full product surfaces.
+- Studio result and receipt payloads use `render_uuid` as the opaque
+  confirmation handle.
+- Async job, webhook-delivery, and API error objects expose only documented
+  outcome fields and safe customer messages.
+- Render results expose output files, the render UUID, and actionable
+  `warnings`.
+- Video quality selection is automatic.
+
+### Removed
+
+- The `ResolvedFontInfo`, `TextLayerRenderInfo`, and `TextSegmentRenderInfo`
+  models and the per-render `Render.text_layers` font-resolution report. Text
+  personalization inputs (`renders.create(text_layers=...)`) and mockup
+  text-layer metadata are unchanged.
+- The `advanced_model` video option: `VideoOptions.advanced_model` and the
+  `create_video(advanced_model=...)` parameter on both clients. Video quality
+  selection is automatic.
+- The `Job.model` field.
+- Structured (dict) bodies on `Job.error`: it is now always a plain string with
+  a safe customer message; the machine-readable code stays on `Job.error_code`.
 
 ## [0.7.0] - 2026-07-26
 
@@ -14,9 +48,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `client.images.remove_background(url=...)` (or `base64=...`) on both the
   synchronous and asynchronous clients removes an image's background and returns
   a `BackgroundRemoval` carrying a signed transparent-PNG cutout URL valid for
-  7 days, ready to use as render artwork. The cutout itself remains retained for
-  the account. Costs 25 credits; credits are refunded automatically if
-  processing fails.
+  7 days, ready to use as render artwork. Costs 25 credits; credits are refunded
+  automatically if processing fails.
 - `remove_background` on render assets (`renders.create`) and 2D print areas
   (`ai.render`) cleans the artwork inline during a render. Adds 25 credits per
   unique artwork. Optional and additive; the default (`False`) is unchanged.
@@ -34,9 +67,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - PSD text personalization through `renders.create(text_layers=...)` on both
   synchronous and asynchronous clients. Single-style text, styled segments,
   font, size, color, outline color, and fit controls are supported.
-- Typed text-layer metadata on mockup/upload responses and font details on
-  render responses.
-- Successful response warnings and backend `error_code` values are surfaced.
+- Typed text-layer metadata on mockup/upload responses.
+- Successful response warnings and API `error_code` values are surfaced.
 
 ### Changed
 
