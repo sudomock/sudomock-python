@@ -5,6 +5,20 @@ All notable changes to the `sudomock` Python SDK are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2026-08-04
+
+### Changed (BREAKING)
+- 2D placement sizing moved from a single `scale` multiplier to independent
+  `width` and `height` in print-area pixels. A one-axis stretch is now a
+  supported placement; the aspect ratio is the caller's choice. Send the two
+  together -- the API rejects half a size instead of guessing the other axis.
+
+### Removed (BREAKING)
+- `placement.scale`. No alias is kept: the API rejects it with 422 rather than
+  ignoring it, so a stale integration fails visibly instead of quietly
+  rendering the wrong size. For the old behaviour, send
+  `width = artwork_width * scale` and `height = artwork_height * scale`.
+
 ## [0.8.0] - 2026-07-27
 
 ### Added
