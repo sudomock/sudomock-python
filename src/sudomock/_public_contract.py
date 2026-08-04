@@ -37,11 +37,17 @@ _ADJUSTMENT_FIELDS = {
     "vibrance",
     "blur",
 }
+# Sizing is "width" + "height" in print-area pixels, and the two axes are
+# independent: a one-axis stretch is a supported placement, not an error.
+# There is deliberately no single scale factor -- one number cannot express two
+# free axes, and keeping it alongside would give callers two ways to say a size
+# that disagree the moment the ratio is broken.
 _PLACEMENT_FIELDS = {
     "position",
     "coverage",
     "fit",
-    "scale",
+    "width",
+    "height",
     "rotation",
     "offset_x",
     "offset_y",
