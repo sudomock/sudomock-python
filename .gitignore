@@ -30,3 +30,7 @@ htmlcov/
 # OS
 .DS_Store
 Thumbs.db
+
+# Lock files: this is a published library, so dependencies stay unpinned.
+uv.lock
+poetry.lock
