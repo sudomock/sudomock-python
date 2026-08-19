@@ -90,16 +90,13 @@ class TestStudioModels:
 
 class TestTwoDModels:
     def test_product_surface_uses_only_public_outcome_fields(self) -> None:
+        # The payload still carries the retired ``coverage``, the way a server
+        # one deploy behind would during a rollout. It is dropped rather than
+        # surfaced: the field named nothing a caller could act on.
         surface = FullSurface.model_validate({"surface_uuid": "surface-1", "coverage": "full"})
 
-        assert surface.model_dump() == {
-            "surface_uuid": "surface-1",
-            "coverage": "full",
-        }
-        assert set(FullSurface.model_json_schema()["properties"]) == {
-            "surface_uuid",
-            "coverage",
-        }
+        assert surface.model_dump() == {"surface_uuid": "surface-1"}
+        assert set(FullSurface.model_json_schema()["properties"]) == {"surface_uuid"}
 
     def test_customizable_is_required(self) -> None:
         with pytest.raises(PydanticValidationError):

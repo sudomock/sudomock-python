@@ -244,7 +244,8 @@ class TestAsyncAI:
 
         assert listing.mockups[0].customizable is True
         assert listing.mockups[0].print_areas[0].print_area_id == "pa-1"
-        assert listing.mockups[0].surfaces[0].coverage == "full"
+        assert listing.mockups[0].surfaces[0].surface_uuid == "surface-1"
+        assert not hasattr(listing.mockups[0].surfaces[0], "coverage")
         assert route.calls.last.request.url.params["customizable_only"] == "true"
 
     async def test_ai_render(self, mock_api: respx.MockRouter) -> None:

@@ -680,7 +680,8 @@ class _AsyncAIResource:
         """Replace up to eight print areas.
 
         An empty list is accepted only when the API has verified every product
-        surface as full coverage.
+        surface as printable; each of those is then a render target in its own
+        right.
         """
         resp = await self._transport.request(
             "PUT",
