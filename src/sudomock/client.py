@@ -722,8 +722,8 @@ class _AIResource:
             mockup_id: 2D mockup identifier.
             print_areas: Up to eight print areas, each with four ``[x, y]``
                 points and an optional ``name``. An empty list is accepted only
-                when the API has verified every product surface as full
-                coverage.
+                when the API has verified every product surface as printable;
+                each of those is then a render target in its own right.
 
         Returns:
             The updated print-area geometry.

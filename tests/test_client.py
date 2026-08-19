@@ -660,10 +660,9 @@ class TestAI:
             assert one.mockup_id == "2d-mockup-001"
             assert one.name == "Flat Tee Front"
             assert one.customizable is True
-            assert one.surfaces[0].model_dump() == {
-                "surface_uuid": "surface-1",
-                "coverage": "full",
-            }
+            # The stubbed payload still carries the retired ``coverage``; the
+            # model drops it rather than passing it on.
+            assert one.surfaces[0].model_dump() == {"surface_uuid": "surface-1"}
 
             client.ai.delete("2d-mockup-001")  # should not raise
 
