@@ -62,11 +62,15 @@ def test_retired_size_object_is_rejected() -> None:
 
 def test_each_target_kind_takes_only_its_own_placement_options() -> None:
     """A percentage spans a surface; a fit meets a print area. Never crossed."""
-    surface = public_2d_render_targets([{
-        "surface_uuid": "surface-1",
-        "artwork_url": "https://e.test/a.png",
-        "placement": {"position": "center", "coverage": 80},
-    }])
+    surface = public_2d_render_targets(
+        [
+            {
+                "surface_uuid": "surface-1",
+                "artwork_url": "https://e.test/a.png",
+                "placement": {"position": "center", "coverage": 80},
+            }
+        ]
+    )
     assert surface[0]["placement"] == {"position": "center", "coverage": 80}
 
     area = public_2d_render_targets(_target(position="center", fit="contain"))
@@ -77,11 +81,15 @@ def test_each_target_kind_takes_only_its_own_placement_options() -> None:
     with pytest.raises(ValueError):
         public_2d_render_targets(_target(coverage=80))
     with pytest.raises(ValueError):
-        public_2d_render_targets([{
-            "surface_uuid": "surface-1",
-            "artwork_url": "https://e.test/a.png",
-            "placement": {"fit": "contain"},
-        }])
+        public_2d_render_targets(
+            [
+                {
+                    "surface_uuid": "surface-1",
+                    "artwork_url": "https://e.test/a.png",
+                    "placement": {"fit": "contain"},
+                }
+            ]
+        )
 
 
 def test_placement_is_copied_not_aliased() -> None:
