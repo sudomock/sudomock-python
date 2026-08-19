@@ -117,9 +117,7 @@ def public_2d_render_targets(targets: list[dict[str, Any]]) -> list[dict[str, An
 
         placement = target.get("placement")
         allowed = (
-            _SURFACE_PLACEMENT_FIELDS
-            if "surface_uuid" in target
-            else _PRINT_AREA_PLACEMENT_FIELDS
+            _SURFACE_PLACEMENT_FIELDS if "surface_uuid" in target else _PRINT_AREA_PLACEMENT_FIELDS
         )
         if placement is not None and (
             not isinstance(placement, dict) or not set(placement) <= allowed
