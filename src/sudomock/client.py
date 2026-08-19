@@ -178,6 +178,14 @@ class _RendersResource:
             smart_objects: Optional list of smart object configurations, each
                 containing ``uuid`` and ``asset`` (with ``url``, optional ``fit``,
                 ``rotate``, ``position``, ``size``, ``remove_background``).
+                ``asset.size`` and ``asset.position`` are measured in the Smart
+                Object's own embedded pixel frame, from that frame's top-left
+                corner, not in mockup-canvas coordinates: sent with ``size``,
+                ``position`` places the artwork's top-left inside that frame and
+                defaults to centred; sent without ``size``, ``position`` moves
+                the whole Smart Object on the mockup canvas instead.
+                ``asset.rotate`` is degrees, clockwise positive, applied before
+                the artwork is sized and fitted.
                 Required unless ``text_layers`` is provided. Setting
                 ``"remove_background": True`` on an asset isolates its subject
                 onto a clean transparent cutout before placement and adds 25
@@ -759,7 +767,17 @@ class _AIResource:
                 ``surface_uuid`` for a full product surface. Add ``base64``
                 (raw base64 artwork bytes), ``artwork_url``, and/or
                 ``color`` (hex), and optional ``adjustments`` / ``placement`` /
-                ``remove_background``. At least one of ``base64``,
+                ``remove_background``. Every pixel length in ``placement``
+                (``width``, ``height``, ``offset_x``, ``offset_y``) is a
+                print-area pixel: the bounding box of the print area's own four
+                corner points, in the pixels of the product photo the mockup was
+                built from. ``offset_x`` / ``offset_y`` run from the anchor
+                chosen by ``position``, positive right and down; ``rotation`` is
+                degrees clockwise applied before positioning, so ``width`` /
+                ``height`` describe the box before rotation; ``width`` and
+                ``height`` travel as a pair and are sent instead of
+                ``coverage`` or ``fit``; sending a box together with either of
+                them is rejected rather than silently resolved. At least one of ``base64``,
                 ``artwork_url`` or ``color`` must be supplied per area. Setting
                 ``"remove_background": True`` isolates the artwork's subject
                 onto a clean transparent cutout before placement and adds 25
