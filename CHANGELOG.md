@@ -5,6 +5,44 @@ All notable changes to the `sudomock` Python SDK are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- `Usage.prepaid_balance` and `Usage.prepaid_balance_currency`, the money an
+  account holds and spends per render. An account funded this way has no
+  subscription allowance, so its three `credits_*` fields are legitimately `0`
+  and reading only those reported a paying customer as `0 / 0 credits`.
+- `Usage.is_funded` and `Usage.funding_summary()`, which read both funding
+  routes so a caller does not have to rediscover that an empty allowance is not
+  an empty account.
+
+Both fields carry defaults rather than being required, so a client kept working
+against a deployment that predates them instead of raising `ValidationError`.
+Nothing on `Usage` was removed or renamed: every field a published release
+parses is still present and still required.
+
+### Changed (BREAKING)
+- Placement options are validated against the kind of target they are sent to.
+  Only the relative spelling is split: a surface takes `coverage`, a print area
+  takes a `fit`. An explicit `width` + `height` belongs to both, because a
+  percentage cannot express a box whose proportions differ from the surface.
+  The crossed pair is refused here rather than spending a call to be told 422,
+  and the message names the mistake where it was made.
+- Sizing is answered exactly once per target. An explicit box sent alongside a
+  `coverage` or a `fit` is refused instead of travelling, and so is half a box:
+  `width` and `height` are provided together or not at all. Both were 422s the
+  SDK used to let through.
+- `surfaces` now holds one entry per printable product in the photo, not only
+  the ones covering a whole object. A product can carry both a surface and
+  saved print areas, and they are separate render targets -- a drawn area no
+  longer closes off the surface it sits on.
+
+### Removed (BREAKING)
+- `FullSurface.coverage`. It was always the string `"full"`, so it stated
+  nothing a caller could act on while reading exactly like a dial they could
+  turn. A payload that still carries it is accepted and the field dropped, so
+  a client stays working against a deployment that predates the removal.
+
 ## [0.9.0] - 2026-08-04
 
 ### Changed (BREAKING)

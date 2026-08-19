@@ -60,11 +60,28 @@ def test_retired_size_object_is_rejected() -> None:
         public_2d_render_targets(_target(size={"width": 800, "height": 200}))
 
 
-def test_coverage_placement_still_works() -> None:
-    """Freeing the axes must not cost the coverage+fit shorthand."""
-    out = public_2d_render_targets(_target(position="center", coverage=80, fit="contain"))
+def test_each_target_kind_takes_only_its_own_placement_options() -> None:
+    """A percentage spans a surface; a fit meets a print area. Never crossed."""
+    surface = public_2d_render_targets([{
+        "surface_uuid": "surface-1",
+        "artwork_url": "https://e.test/a.png",
+        "placement": {"position": "center", "coverage": 80},
+    }])
+    assert surface[0]["placement"] == {"position": "center", "coverage": 80}
 
-    assert out[0]["placement"] == {"position": "center", "coverage": 80, "fit": "contain"}
+    area = public_2d_render_targets(_target(position="center", fit="contain"))
+    assert area[0]["placement"] == {"position": "center", "fit": "contain"}
+
+    # Crossed, both ways. The API answers each with a 422, so refusing here
+    # spends no call and names the mistake where the caller made it.
+    with pytest.raises(ValueError):
+        public_2d_render_targets(_target(coverage=80))
+    with pytest.raises(ValueError):
+        public_2d_render_targets([{
+            "surface_uuid": "surface-1",
+            "artwork_url": "https://e.test/a.png",
+            "placement": {"fit": "contain"},
+        }])
 
 
 def test_placement_is_copied_not_aliased() -> None:

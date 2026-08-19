@@ -44,14 +44,41 @@ _ADJUSTMENT_FIELDS = {
 # that disagree the moment the ratio is broken.
 _PLACEMENT_FIELDS = {
     "position",
-    "coverage",
-    "fit",
-    "width",
-    "height",
     "rotation",
     "offset_x",
     "offset_y",
 }
+# Sizing is the one option that belongs to a kind of target, and the API answers
+# the crossed pair with a 422. A surface is spanned by a percentage; a print area
+# is met by a fit against its bounds. An explicit box belongs to BOTH: a
+# percentage cannot express a box whose proportions differ from the surface, so
+# refusing width/height on a surface makes every all-over print somebody resized
+# on canvas unsendable.
+_SIZE_AXES = ("width", "height")
+_SURFACE_PLACEMENT_FIELDS = _PLACEMENT_FIELDS | {"coverage", *_SIZE_AXES}
+_PRINT_AREA_PLACEMENT_FIELDS = _PLACEMENT_FIELDS | {"fit", *_SIZE_AXES}
+# Whichever kind of target it is, sizing has exactly one answer per request.
+_SIZING_MODES = ("coverage", "fit")
+
+
+def _check_sizing(placement: dict[str, Any]) -> None:
+    """Refuse a placement that answers the sizing question twice, or half.
+
+    Both of these are a 422 at the API. Naming them here costs no call and
+    names the mistake where the caller made it.
+    """
+    named_axes = [axis for axis in _SIZE_AXES if axis in placement]
+    if len(named_axes) == 1:
+        raise ValueError(
+            "Render target placement width and height must be provided together: "
+            "half a size is not a size."
+        )
+    crossed = [mode for mode in _SIZING_MODES if mode in placement]
+    if named_axes and crossed:
+        raise ValueError(
+            "Render target placement gives two different ways to size: "
+            f"an explicit width and height, and {crossed[0]}. Send one."
+        )
 
 
 def public_error_text(value: Any, fallback: Optional[str] = None) -> Optional[str]:
@@ -89,10 +116,17 @@ def public_2d_render_targets(targets: list[dict[str, Any]]) -> list[dict[str, An
             raise ValueError("Each render target must use only documented adjustments.")
 
         placement = target.get("placement")
+        allowed = (
+            _SURFACE_PLACEMENT_FIELDS
+            if "surface_uuid" in target
+            else _PRINT_AREA_PLACEMENT_FIELDS
+        )
         if placement is not None and (
-            not isinstance(placement, dict) or not set(placement) <= _PLACEMENT_FIELDS
+            not isinstance(placement, dict) or not set(placement) <= allowed
         ):
             raise ValueError("Each render target must use only documented placement options.")
+        if isinstance(placement, dict):
+            _check_sizing(placement)
 
         normalized.append(
             {

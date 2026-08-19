@@ -99,7 +99,20 @@ then render your artwork. Creation costs 25 credits and rendering costs 5 credit
 Unsuccessful creations are refunded automatically.
 
 `customizable` is always a boolean, and `surfaces` and `print_areas` are typed
-lists. Each full surface exposes `surface_uuid` and `coverage="full"`.
+lists. `surfaces` holds one entry per printable product in the photo, each
+exposing a `surface_uuid`; `print_areas` holds the bounded zones somebody drew
+on those products. A product can have both, and they are separate render
+targets -- a saved print area does not close off the surface it sits on.
+
+Placement follows the target, and sizing has exactly one answer per target. A
+surface takes `coverage`, a percentage from 10 to 100 that spans the whole
+surface when omitted. A print area takes a `fit` (`contain`, `fill`, `cover`),
+which meets its bounds when omitted. Either kind also takes an explicit
+`width` + `height` in pixels, for a box whose proportions a percentage or a fit
+cannot express. Send one way of sizing, not two, and give both axes or neither.
+Anchoring -- `position`, `offset_x`, `offset_y`, `rotation` -- belongs to both.
+Whatever you leave unset is left off the wire so the renderer applies its own
+default.
 
 ```python
 from sudomock import SudoMock
@@ -122,7 +135,7 @@ render = client.ai.render(
 )
 print(render.url)
 
-# A full product surface can be rendered directly with its surface UUID.
+# A product surface is rendered directly with its surface UUID.
 if mockup.surfaces:
     render = client.ai.render(
         mockup_uuid=mockup.mockup_id,
@@ -176,9 +189,9 @@ else:
 
 ## Video Rendering
 
-Animate a mockup into an AI video. Video renders are always async (return a
-`JobAccepted`). The first video render on a free plan is granted once for the
-account's lifetime. Unsupported `duration_seconds` values return `400`;
+Animate a mockup into a video. Video renders are always async (return a
+`JobAccepted`). Every account gets its first video render at no charge, once, for
+the lifetime of the account. Unsupported `duration_seconds` values return `400`;
 quality selection is automatic.
 
 ```python
@@ -400,10 +413,44 @@ client = SudoMock(api_key="sm_your_api_key")
 account = client.account.get()
 
 print(f"Plan: {account.subscription.plan}")
-print(f"Credits remaining: {account.usage.credits_remaining}")
-print(f"Credits limit: {account.usage.credits_limit}")
+print(f"Funding: {account.usage.funding_summary()}")
 print(f"Period ends: {account.subscription.current_period_end}")
 ```
+
+An account can be funded two independent ways, so read both before you draw a
+conclusion. `credits_limit` is a subscription's monthly allowance, and
+`prepaid_balance` is money the account holds and spends per render. An account
+paying as it goes has no allowance at all, so its three `credits_*` fields are
+legitimately `0` while it is fully able to pay. Printing only those renders it as
+`0 / 0`, and a bar drawn from them sits at 0% forever.
+
+```python
+usage = account.usage
+
+if usage.credits_limit > 0:
+    print(f"{usage.credits_remaining:,} of {usage.credits_limit:,} credits left")
+if usage.prepaid_balance > 0:
+    print(f"{usage.prepaid_balance:.2f} {usage.prepaid_balance_currency} balance")
+if not usage.is_funded:
+    print("No credits or balance. Add a credit card.")
+```
+
+`usage.funding_summary()` is the same logic in one line. Draw a progress bar only
+from `credits_limit`, never from `prepaid_balance`: a balance is an amount, not a
+fraction, so it has no denominator to be a percentage of.
+
+### Pricing in one paragraph
+
+Pay as you go is the entry tier and needs no subscription: one PSD render costs
+$0.10, so $1 covers 10, and the minimum first payment is $5. 2D Mockups and video
+are priced by what they cost to produce, not at the flat render rate. Volume plans
+start at $25/month for 5,000 renders. A new account gets 500 credits once, with no
+card required to spend them, but until a card is verified its renders are
+watermarked and capped at 1,024 px, it can keep 5 PSD templates, and one render
+runs at a time. Funding the $5 minimum lifts every one of those: the watermark and
+the width cap come off, the stored-template limit goes to 150, and renders run 25
+at a time alongside 10 concurrent uploads. There is no separate "free plan": that
+account is on the pay-as-you-go tier, unfunded.
 
 ## Configuration
 

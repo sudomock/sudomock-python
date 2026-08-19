@@ -69,13 +69,46 @@ class Subscription(_Base):
 
 
 class Usage(_Base):
-    """Credit usage within the current billing period."""
+    """Credit usage and prepaid balance for the current billing period."""
 
     credits_used_this_month: int
     credits_limit: int
     credits_remaining: int
     billing_period_start: datetime
     billing_period_end: datetime
+    # An account can be funded two independent ways, and the three credits_*
+    # fields above only describe the first one: a subscription allotment. An
+    # account that pays per render from a prepaid balance has no allotment, so
+    # all three are legitimately 0 and reporting only them renders a paying
+    # customer as "0 / 0 credits". prepaid_balance is the money that account
+    # actually holds.
+    #
+    # Defaulted, not required. A required field would raise ValidationError
+    # against any deployment that predates the field, which would turn a
+    # cosmetic gap into a hard client failure.
+    prepaid_balance: float = 0.0
+    prepaid_balance_currency: str = "USD"
+
+    @property
+    def is_funded(self) -> bool:
+        """True when the account can pay for work, by either funding route."""
+        return self.credits_remaining > 0 or self.prepaid_balance > 0
+
+    def funding_summary(self) -> str:
+        """One-line funding description that never reads as a bare ``0 / 0``.
+
+        Credits and balance are separate quantities: an allotment has a
+        denominator and can be shown as a fraction, a balance does not and
+        must never be rendered as a percentage.
+        """
+        parts = []
+        if self.credits_limit > 0:
+            parts.append(f"{self.credits_remaining:,} of {self.credits_limit:,} credits left")
+        elif self.credits_remaining > 0:
+            parts.append(f"{self.credits_remaining:,} credits left")
+        if self.prepaid_balance > 0:
+            parts.append(f"{self.prepaid_balance:.2f} {self.prepaid_balance_currency} balance")
+        return " and ".join(parts) if parts else "No credits or balance"
 
 
 class ApiKeyInfo(_Base):
@@ -368,12 +401,17 @@ class Quad(_Outcome):
 
 
 class FullSurface(_Outcome):
-    """A full product surface available as a render target."""
+    """One printable product in the photo, available as a render target.
+
+    Nothing here says what kind of surface it is. Being listed under
+    ``surfaces`` is the whole statement; the fixed ``coverage="full"`` that used
+    to ride along named nothing a caller could act on while reading exactly
+    like a dial they could turn.
+    """
 
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
     surface_uuid: str
-    coverage: Literal["full"]
 
 
 class TwoDPrintAreasUpdate(_Outcome):
