@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
+import base64
 import re
 from typing import Any, Optional
 
+# The pattern is stored encoded because this package is PUBLIC on PyPI. Spelled
+# out, the list names an internal detail, so
+# the scrubber becomes the leak. Decoding at import keeps behaviour identical.
 _NON_PUBLIC_TEXT = re.compile(
-    r"_PATTERN_"
-    r""
-    r""
-    r""
-    r"",
+    base64.b64decode("_PATTERN_").decode(),
     re.IGNORECASE,
 )
 _PRIVATE_KEY = re.compile(
