@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-09-18
+
 ### Added
 - Every request now carries `X-SudoMock-Client: python-sdk/<version>`, and the
   `User-Agent` header sends the same value (it used to read
