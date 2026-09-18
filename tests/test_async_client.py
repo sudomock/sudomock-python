@@ -9,6 +9,7 @@ from uuid import UUID
 import httpx
 import pytest
 
+import sudomock
 from sudomock import AsyncSudoMock
 from sudomock.exceptions import (
     AuthenticationError,
@@ -760,17 +761,19 @@ class TestAsyncRetry:
 
 
 # ---------------------------------------------------------------------------
-# User-Agent header
+# Client identity headers
 # ---------------------------------------------------------------------------
 
 
-class TestAsyncUserAgent:
-    async def test_user_agent_header(self, mock_api: respx.MockRouter) -> None:
+class TestAsyncClientIdentity:
+    async def test_client_identity_headers(self, mock_api: respx.MockRouter) -> None:
         route = mock_api.get("/api/v1/mockups").mock(
             return_value=httpx.Response(200, json=MOCK_MOCKUP_LIST_RESPONSE)
         )
         async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
             await client.mockups.list()
 
-        ua = route.calls.last.request.headers["user-agent"]
-        assert ua.startswith("sudomock-python/")
+        headers = route.calls.last.request.headers
+        expected = f"python-sdk/{sudomock.__version__}"
+        assert headers["x-sudomock-client"] == expected
+        assert headers["user-agent"] == expected
