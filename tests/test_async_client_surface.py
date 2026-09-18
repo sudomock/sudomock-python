@@ -170,3 +170,34 @@ class TestAsyncWebhooks:
             await client.webhook_endpoints.replay_delivery("wh-1", "dlv-1")
         assert secret.secret == "whsec_new"
         assert len(route.calls) == 1
+
+    async def test_create_with_event_naming(self, mock_api: respx.MockRouter) -> None:
+        route = mock_api.post("/api/v1/webhook-endpoints").mock(
+            return_value=httpx.Response(201, json=MOCK_WEBHOOK_CREATE_RESPONSE)
+        )
+        async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
+            result = await client.webhook_endpoints.create(
+                url="https://x.com/wh", events=["photo_mockup.ready"], event_naming="current"
+            )
+        body = json.loads(route.calls.last.request.content)
+        assert body["event_naming"] == "current"
+        assert result.event_naming == "current"
+
+    async def test_create_omits_event_naming_by_default(self, mock_api: respx.MockRouter) -> None:
+        route = mock_api.post("/api/v1/webhook-endpoints").mock(
+            return_value=httpx.Response(201, json=MOCK_WEBHOOK_CREATE_RESPONSE)
+        )
+        async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
+            await client.webhook_endpoints.create(url="https://x.com/wh", events=[])
+        body = json.loads(route.calls.last.request.content)
+        assert "event_naming" not in body
+
+    async def test_update_event_naming(self, mock_api: respx.MockRouter) -> None:
+        route = mock_api.patch("/api/v1/webhook-endpoints/wh-1").mock(
+            return_value=httpx.Response(200, json=MOCK_WEBHOOK_CREATE_RESPONSE)
+        )
+        async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
+            result = await client.webhook_endpoints.update("wh-1", event_naming="legacy")
+        body = json.loads(route.calls.last.request.content)
+        assert body == {"event_naming": "legacy"}
+        assert result.event_naming == "current"  # what the API reported back

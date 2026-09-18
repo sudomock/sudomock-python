@@ -81,6 +81,7 @@ from .models import (
     WebhookDeliveryList,
     WebhookEndpoint,
     WebhookEndpointList,
+    WebhookEventNaming,
     WebhookSecret,
 )
 from .webhooks import verify_webhook_signature
@@ -130,6 +131,7 @@ __all__ = [
     "WebhookDeliveryList",
     "WebhookEndpoint",
     "WebhookEndpointList",
+    "WebhookEventNaming",
     "WebhookSecret",
     # Webhooks
     "verify_webhook_signature",

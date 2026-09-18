@@ -55,6 +55,7 @@ from .models import (
     WebhookDeliveryList,
     WebhookEndpoint,
     WebhookEndpointList,
+    WebhookEventNaming,
     WebhookSecret,
 )
 
@@ -493,6 +494,7 @@ class _WebhookEndpointsResource:
         url: str,
         events: _StrList,
         description: Optional[str] = None,
+        event_naming: Optional[WebhookEventNaming] = None,
     ) -> WebhookEndpoint:
         """Register a new webhook endpoint.
 
@@ -501,6 +503,12 @@ class _WebhookEndpointsResource:
             events: Event types to subscribe to (e.g. ``["render.succeeded"]``);
                 an empty list subscribes to ALL events.
             description: Optional human-readable label (≤255 chars).
+            event_naming: Which spelling of the photo-mockup events this endpoint
+                receives: ``"current"`` (``photo_mockup.*``,
+                ``photo_mockup_render.*``) or ``"legacy"`` (``2d_mockup.*``,
+                ``2d_render.*``). Left out, the API pins a new endpoint to
+                ``"current"``; pass ``"legacy"`` for a handler that still reads
+                the older names.
 
         Returns:
             The created :class:`WebhookEndpoint` (includes the signing
@@ -511,6 +519,8 @@ class _WebhookEndpointsResource:
         body: dict[str, Any] = {"url": url, "event_types": events}
         if description is not None:
             body["description"] = description
+        if event_naming is not None:
+            body["event_naming"] = event_naming
         resp = self._transport.request("POST", "/api/v1/webhook-endpoints", json=body)
         # BARE endpoint object (no {success, data} envelope).
         return WebhookEndpoint.model_validate(resp.json())
@@ -551,8 +561,16 @@ class _WebhookEndpointsResource:
         events: Optional[_StrList] = None,
         description: Optional[str] = None,
         enabled: Optional[bool] = None,
+        event_naming: Optional[WebhookEventNaming] = None,
     ) -> WebhookEndpoint:
-        """Update a webhook endpoint's URL, events, description, or enabled state."""
+        """Update a webhook endpoint's URL, events, description, enabled state
+        or event naming.
+
+        Args:
+            event_naming: Re-pin the endpoint to ``"current"`` or ``"legacy"``
+                event names once its handler is ready for them. Only the fields
+                passed are sent.
+        """
         body: dict[str, Any] = {}
         if url is not None:
             body["url"] = url
@@ -562,6 +580,8 @@ class _WebhookEndpointsResource:
             body["description"] = description
         if enabled is not None:
             body["enabled"] = enabled
+        if event_naming is not None:
+            body["event_naming"] = event_naming
         resp = self._transport.request("PATCH", f"/api/v1/webhook-endpoints/{uuid}", json=body)
         # BARE endpoint object (no {success, data} envelope).
         return WebhookEndpoint.model_validate(resp.json())
