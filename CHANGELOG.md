@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-09-18
+
+### Added
+- `WebhookEndpoint.event_naming`, the spelling of the photo-mockup events an
+  endpoint is pinned to: `"current"` (`photo_mockup.*`,
+  `photo_mockup_render.*`) or `"legacy"` (`2d_mockup.*`, `2d_render.*`). The
+  payload's `kind` follows the same pin. The field carries a default of `None`,
+  so a client kept working against a deployment that predates it, and it stays
+  a plain string so a naming a later API release adds still parses.
+- `client.webhook_endpoints.create(..., event_naming=)` and
+  `client.webhook_endpoints.update(uuid, event_naming=)` choose or change that
+  pin, on both the sync and the asyncio client. Left out on create, the field
+  is not sent and the API pins a new endpoint to `"current"`; left out on
+  update, the pin is untouched. `WebhookEventNaming`, the `Literal` of the two
+  values, is exported from the package.
+- `JobKind`, a `Literal` of every `jobs.kind` value the API admits:
+  `render`, `video`, `upload`, `2d_create`, `2d_render`,
+  `photo_mockup_create` and `photo_mockup_render`. It is exported from the
+  package and types the `kind` filter of `client.jobs.list(...)`. A photo
+  mockup has two spellings of its kind, the published one (`2d_*`) and the
+  family's own name (`photo_mockup_*`); both name the same work, and a filter
+  on either spelling selects both.
+
+### Changed
+- `client.ai.wait_for_2d_mockup(...)` accepts a job of kind
+  `photo_mockup_create` as well as `2d_create`. A job of any other kind still
+  raises `SudoMockError`; the message now reads
+  `expected a photo-mockup create job ('2d_create' or 'photo_mockup_create')`
+  instead of `expected '2d_create'`.
+
+`Job.kind` and `JobAccepted.kind` stay plain strings on purpose, so a kind a
+later API release adds still parses instead of raising `ValidationError`.
+
 ## [0.9.1] - 2026-09-18
 
 ### Added
@@ -220,7 +253,8 @@ parses is still present and still required.
 - Typed Pydantic v2 response models, typed exceptions, and tenacity-backed retry
   with exponential backoff.
 
-[Unreleased]: https://github.com/sudomock/sudomock-python/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/sudomock/sudomock-python/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/sudomock/sudomock-python/compare/v0.9.1...v0.10.0
 [0.7.0]: https://github.com/sudomock/sudomock-python/compare/v0.6.1...v0.7.0
 [0.2.0]: https://github.com/sudomock/sudomock-python/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/sudomock/sudomock-python/releases/tag/v0.1.0
