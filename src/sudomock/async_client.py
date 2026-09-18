@@ -47,11 +47,13 @@ from ._http import (
 from ._public_contract import public_2d_render_targets
 from .exceptions import JobFailedError, JobTimeoutError, SudoMockError
 from .models import (
+    PHOTO_MOCKUP_CREATE_KINDS,
     AccountInfo,
     AIRender,
     BackgroundRemoval,
     Job,
     JobAccepted,
+    JobKind,
     JobList,
     Mockup,
     MockupList,
@@ -319,7 +321,7 @@ class _AsyncJobsResource:
     async def list(
         self,
         *,
-        kind: Optional[str] = None,
+        kind: Optional[JobKind] = None,
         mockup_uuid: Optional[str] = None,
         limit: Optional[int] = None,
         cursor: Optional[str] = None,
@@ -327,8 +329,10 @@ class _AsyncJobsResource:
         """List your async jobs, newest first (keyset-paginated).
 
         Args:
-            kind: Filter by job kind: ``video``, ``render``, ``upload``, or
-                ``2d_create``.
+            kind: Filter by job kind: ``video``, ``render``, ``upload``,
+                ``2d_create``, ``2d_render``, ``photo_mockup_create`` or
+                ``photo_mockup_render``. A photo-mockup kind selects both
+                spellings of that job.
             mockup_uuid: Filter by source mockup (raw-image videos excluded).
             limit: Page size, 1..50 (default server-side: 20).
             cursor: Opaque keyset cursor from a previous page's ``next_cursor``.
@@ -667,8 +671,12 @@ class _AsyncAIResource:
         except TimeoutError as exc:
             raise JobTimeoutError(job_id, timeout=timeout) from exc
 
-        if job.kind not in (None, "2d_create"):
-            raise SudoMockError(f"Job {job_id} has kind {job.kind!r}; expected '2d_create'")
+        if job.kind is not None and job.kind not in PHOTO_MOCKUP_CREATE_KINDS:
+            expected = " or ".join(repr(kind) for kind in PHOTO_MOCKUP_CREATE_KINDS)
+            raise SudoMockError(
+                f"Job {job_id} has kind {job.kind!r}; "
+                f"expected a photo-mockup create job ({expected})"
+            )
         if job.failed:
             error_code, reason = job.failure_details()
             raise JobFailedError(
