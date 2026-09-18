@@ -10,7 +10,9 @@ from typing import Any, Optional
 # out, the list names every provider and pipeline concept it exists to hide, so
 # the scrubber becomes the leak. Decoding at import keeps behaviour identical.
 _ENGINE_DETAIL = re.compile(
-    base64.b64decode("Z2VtaW5pfGFkdmFuY2VkLj9tb2RlbHxcYm1vZGVsXGJ8cHJvbXB0fG1hc2soPzpffC18XGIpfHNlZ21lbnQoPzphdGlvbik/KD86X3wtfFxiKXxyZWdpb24uP2luZGV4fGRlcHRofGRpc3BsYWNlbWVudHxncmlkfHdhcnB8c2hhZGluZ3xwcm92aWRlcnxwaXBlbGluZXxlbmdpbmV8aW50ZXJuYWx8cHJpdmF0ZXxzdG9yYWdlfGJ1Y2tldHxjb25maWcuP3ZlcnNpb258c2V0dXAuP3JldmlzaW9ufGVkaXQuP2dlbmVyYXRpb258XGJwaGFzZVxifHN0YXRlLj9tYWNoaW5lfCg/OmludGVybmFsfHByb2Nlc3Npbmd8d29ya2Zsb3cpLj9zdGF0ZQ==").decode(),
+    base64.b64decode(
+        "Z2VtaW5pfGFkdmFuY2VkLj9tb2RlbHxcYm1vZGVsXGJ8cHJvbXB0fG1hc2soPzpffC18XGIpfHNlZ21lbnQoPzphdGlvbik/KD86X3wtfFxiKXxyZWdpb24uP2luZGV4fGRlcHRofGRpc3BsYWNlbWVudHxncmlkfHdhcnB8c2hhZGluZ3xwcm92aWRlcnxwaXBlbGluZXxlbmdpbmV8aW50ZXJuYWx8cHJpdmF0ZXxzdG9yYWdlfGJ1Y2tldHxjb25maWcuP3ZlcnNpb258c2V0dXAuP3JldmlzaW9ufGVkaXQuP2dlbmVyYXRpb258XGJwaGFzZVxifHN0YXRlLj9tYWNoaW5lfCg/OmludGVybmFsfHByb2Nlc3Npbmd8d29ya2Zsb3cpLj9zdGF0ZQ=="
+    ).decode(),
     re.IGNORECASE,
 )
 _PRIVATE_KEY = re.compile(

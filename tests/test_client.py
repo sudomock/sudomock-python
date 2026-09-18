@@ -9,6 +9,7 @@ from uuid import UUID
 import httpx
 import pytest
 
+import sudomock
 from sudomock import SudoMock
 from sudomock.exceptions import (
     AuthenticationError,
@@ -1014,17 +1015,35 @@ class TestRetry:
 
 
 # ---------------------------------------------------------------------------
-# User-Agent header
+# Client identity headers
 # ---------------------------------------------------------------------------
 
 
-class TestUserAgent:
-    def test_user_agent_header(self, mock_api: respx.MockRouter) -> None:
+class TestClientIdentity:
+    def test_client_identity_headers(self, mock_api: respx.MockRouter) -> None:
         route = mock_api.get("/api/v1/mockups").mock(
             return_value=httpx.Response(200, json=MOCK_MOCKUP_LIST_RESPONSE)
         )
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
             client.mockups.list()
 
-        ua = route.calls.last.request.headers["user-agent"]
-        assert ua.startswith("sudomock-python/")
+        headers = route.calls.last.request.headers
+        expected = f"python-sdk/{sudomock.__version__}"
+        assert headers["x-sudomock-client"] == expected
+        assert headers["user-agent"] == expected
+        assert "\n" not in expected and "\r" not in expected
+
+    def test_client_identity_survives_per_request_headers(self, mock_api: respx.MockRouter) -> None:
+        """A per-request header (e.g. Idempotency-Key) must not drop the identity."""
+        route = mock_api.post("/api/v1/sudoai/2d-mockups").mock(
+            return_value=httpx.Response(201, json=MOCK_2D_MOCKUP_GET_RESPONSE)
+        )
+        with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
+            client.ai.create(
+                source_url="https://example.com/product.jpg",
+                idempotency_key="idem-123",
+            )
+
+        headers = route.calls.last.request.headers
+        assert headers["idempotency-key"] == "idem-123"
+        assert headers["x-sudomock-client"] == f"python-sdk/{sudomock.__version__}"

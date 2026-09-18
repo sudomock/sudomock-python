@@ -25,8 +25,7 @@ For async usage::
 
 from __future__ import annotations
 
-import importlib.metadata
-
+from ._version import __version__
 from .async_client import AsyncSudoMock
 from .client import SudoMock
 from .exceptions import (
@@ -84,11 +83,6 @@ from .models import (
     WebhookSecret,
 )
 from .webhooks import verify_webhook_signature
-
-try:
-    __version__ = importlib.metadata.version("sudomock")
-except importlib.metadata.PackageNotFoundError:
-    __version__ = "0.0.0-dev"
 
 __all__ = [
     # Clients
