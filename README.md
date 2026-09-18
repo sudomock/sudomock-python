@@ -286,6 +286,13 @@ ep = client.webhook_endpoints.create(
 )
 print(ep.secret)  # store this -- it signs deliveries
 
+# Photo-mockup events reach an endpoint in one spelling, its `event_naming`
+# pin: "current" (photo_mockup.*, photo_mockup_render.*) or "legacy"
+# (2d_mockup.*, 2d_render.*). A new endpoint is pinned to "current"; pass
+# "legacy" for a handler that still reads the older names, and re-pin later.
+print(ep.event_naming)  # "current"
+client.webhook_endpoints.update(ep.id, event_naming="legacy")
+
 # List / update / rotate / test / replay
 client.webhook_endpoints.list()
 client.webhook_endpoints.update(ep.id, enabled=False)
@@ -490,7 +497,7 @@ client = SudoMock(
 
 | Method | Description |
 |--------|-------------|
-| `client.jobs.list(kind=, mockup_uuid=, limit=, cursor=)` | List your async jobs (keyset-paginated, newest first) |
+| `client.jobs.list(kind=, mockup_uuid=, limit=, cursor=)` | List your async jobs (keyset-paginated, newest first). `kind` is a `JobKind`: `render`, `video`, `upload`, `2d_create`, `2d_render`, `photo_mockup_create`, `photo_mockup_render`; a photo-mockup kind selects both spellings of that job |
 | `client.jobs.get(job_id)` | Get async job status (`queued`/`running`/`succeeded`/`failed`) |
 | `client.jobs.wait(job_id, poll_interval=2.0, timeout=300.0)` | Poll until the job reaches a terminal state |
 
@@ -505,7 +512,7 @@ client = SudoMock(
 | Method | Description |
 |--------|-------------|
 | `client.ai.create(source_url=, source_base64=, name=, print_areas=, is_async=False, idempotency_key=)` | Create a 2D mockup (25 credits; sync `TwoDMockup` by default, or `JobAccepted` when `is_async=True`) |
-| `client.ai.wait_for_2d_mockup(job_id, poll_interval=2.0, timeout=180.0)` | Wait for an `is_async=True` creation and return the full 2D mockup |
+| `client.ai.wait_for_2d_mockup(job_id, poll_interval=2.0, timeout=180.0)` | Wait for an `is_async=True` creation and return the full 2D mockup (accepts a job of kind `2d_create` or `photo_mockup_create`) |
 | `client.ai.update_2d_print_areas(mockup_id, print_areas)` | Replace a 2D mockup's print areas (free) |
 | `client.ai.render(mockup_uuid=, print_areas=, export_options=, is_async=False)` | Render artwork onto a 2D mockup (5 credits; sync `AIRender` with `render_uuid` by default, or `JobAccepted` when `is_async=True`) |
 | `client.ai.list(limit=, offset=, customizable_only=)` | List your 2D mockups; set `customizable_only=True` for shopper-ready items |
@@ -536,9 +543,9 @@ client = SudoMock(
 | Method | Description |
 |--------|-------------|
 | `client.webhook_endpoints.list()` | List registered endpoints |
-| `client.webhook_endpoints.create(url=, events=, description=None)` | Register an endpoint (empty `events` = all) |
+| `client.webhook_endpoints.create(url=, events=, description=None, event_naming=None)` | Register an endpoint (empty `events` = all; `event_naming` `"current"` / `"legacy"`, API default `"current"`) |
 | `client.webhook_endpoints.get(uuid)` | Get an endpoint |
-| `client.webhook_endpoints.update(uuid, url=, events=, description=, enabled=)` | Update an endpoint |
+| `client.webhook_endpoints.update(uuid, url=, events=, description=, enabled=, event_naming=)` | Update an endpoint (`event_naming` re-pins it to `"current"` or `"legacy"`) |
 | `client.webhook_endpoints.delete(uuid)` | Delete an endpoint |
 | `client.webhook_endpoints.rotate_secret(uuid)` | Rotate the signing secret |
 | `client.webhook_endpoints.test(uuid)` | Send a synthetic test delivery |

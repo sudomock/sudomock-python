@@ -420,6 +420,9 @@ MOCK_WEBHOOK_ENDPOINT = {
     "description": None,
     "event_types": ["render.succeeded", "render.failed"],
     "enabled": True,
+    # The spelling of the photo-mockup events this endpoint is pinned to
+    # ('legacy' or 'current'); the API reports it on every endpoint response.
+    "event_naming": "current",
     "created_at": "2026-06-21T10:00:00Z",
     "updated_at": None,
 }

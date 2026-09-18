@@ -478,6 +478,27 @@ class BackgroundRemoval(_Outcome):
 # Async jobs (is_async renders / uploads / video)
 # ---------------------------------------------------------------------------
 
+# Every ``jobs.kind`` value the API admits, in the order the API lists them.
+# A photo mockup has two spellings of its kind: the published one
+# (``2d_create`` / ``2d_render``) and the family's own name
+# (``photo_mockup_create`` / ``photo_mockup_render``). Both name the same work
+# and both can come back from ``GET /api/v1/jobs/{job_id}``; a filter on
+# ``jobs.list(kind=...)`` with either spelling selects both.
+JobKind = Literal[
+    "render",
+    "video",
+    "upload",
+    "2d_create",
+    "2d_render",
+    "photo_mockup_create",
+    "photo_mockup_render",
+]
+
+# The spellings that mean "create a photo mockup" / "render a photo mockup".
+# A consumer that branches on the kind checks the pair, never one literal.
+PHOTO_MOCKUP_CREATE_KINDS: tuple[str, ...] = ("2d_create", "photo_mockup_create")
+PHOTO_MOCKUP_RENDER_KINDS: tuple[str, ...] = ("2d_render", "photo_mockup_render")
+
 
 class JobAccepted(_Outcome):
     """Acknowledgement returned by a ``202 Accepted`` async submission.
@@ -486,6 +507,9 @@ class JobAccepted(_Outcome):
     is_async=True)``, ``renders.create_video(...)``, and ``ai.create(...,
     is_async=True)``. Poll for completion with :meth:`jobs.get` or
     :meth:`jobs.wait` using :attr:`job_id`.
+
+    :attr:`kind` is one of :data:`JobKind` today; it stays a plain string so a
+    kind this SDK does not know yet still parses instead of raising.
     """
 
     job_id: str
@@ -514,7 +538,8 @@ class Job(_Outcome):
 
     The terminal states are ``"succeeded"`` and ``"failed"``; ``"queued"``
     and ``"running"`` are non-terminal. The current state value is exposed on
-    :attr:`status` (the API field is ``status``).
+    :attr:`status` (the API field is ``status``). :attr:`kind` is one of
+    :data:`JobKind` today and stays a plain string for forward compatibility.
     """
 
     job_id: Optional[str] = None
@@ -628,13 +653,29 @@ class VideoOptions(_Outcome):
 # ---------------------------------------------------------------------------
 
 
+# The two spellings of the photo-mockup events an endpoint can be pinned to:
+# ``"current"`` delivers ``photo_mockup.*`` / ``photo_mockup_render.*`` and
+# ``"legacy"`` delivers ``2d_mockup.*`` / ``2d_render.*``; the payload's
+# ``kind`` follows the same pin. Every other event is spelled the same under
+# both. The API pins a new endpoint to ``"current"`` unless told otherwise;
+# an endpoint that predates the current names stays on ``"legacy"`` until it
+# is re-pinned.
+WebhookEventNaming = Literal["legacy", "current"]
+
+
 class WebhookEndpoint(_Base):
     """A registered outbound webhook endpoint.
 
     Mirrors the API's ``WebhookEndpointResponse``: the identifier is ``id``,
-    subscribed events are ``event_types`` (empty = subscribe to all), and the
+    subscribed events are ``event_types`` (empty = subscribe to all), the
     ``secret`` is masked (``whsec_****<last4>``) except on create / rotate
-    where the full value is returned once.
+    where the full value is returned once, and ``event_naming`` is the
+    spelling of the photo-mockup events this endpoint receives.
+
+    :attr:`event_naming` is one of :data:`WebhookEventNaming` today; it stays
+    a plain string so a naming a later API release adds still parses instead
+    of raising ``ValidationError``. It is ``None`` on a deployment that
+    predates the field.
     """
 
     id: str
@@ -643,6 +684,7 @@ class WebhookEndpoint(_Base):
     description: Optional[str] = None
     event_types: list[str] = Field(default_factory=list)
     enabled: bool = True
+    event_naming: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 

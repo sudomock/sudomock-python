@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+from typing import get_args
+
 import pytest
 from pydantic import ValidationError as PydanticValidationError
 
+import sudomock
 from sudomock.models import (
+    PHOTO_MOCKUP_CREATE_KINDS,
+    PHOTO_MOCKUP_RENDER_KINDS,
     Account,
     AccountInfo,
     AIRender,
@@ -14,6 +19,7 @@ from sudomock.models import (
     FullSurface,
     Job,
     JobAccepted,
+    JobKind,
     Mockup,
     MockupList,
     PrintFile,
@@ -29,6 +35,7 @@ from sudomock.models import (
     VideoOptions,
     WebhookDelivery,
     WebhookEndpoint,
+    WebhookEventNaming,
 )
 
 
@@ -298,6 +305,35 @@ class TestAIRender:
             _ = r.url
 
 
+class TestJobKind:
+    def test_job_kind_lists_every_spelling_the_api_admits(self) -> None:
+        """``JobKind`` names every ``jobs.kind`` value, published and family, in API order."""
+        assert get_args(JobKind) == (
+            "render",
+            "video",
+            "upload",
+            "2d_create",
+            "2d_render",
+            "photo_mockup_create",
+            "photo_mockup_render",
+        )
+
+    def test_job_kind_is_exported_from_the_package(self) -> None:
+        assert "JobKind" in sudomock.__all__
+        assert sudomock.JobKind is JobKind
+
+    def test_photo_mockup_create_kinds_pair_both_spellings(self) -> None:
+        assert PHOTO_MOCKUP_CREATE_KINDS == ("2d_create", "photo_mockup_create")
+        assert PHOTO_MOCKUP_RENDER_KINDS == ("2d_render", "photo_mockup_render")
+        for kind in PHOTO_MOCKUP_CREATE_KINDS + PHOTO_MOCKUP_RENDER_KINDS:
+            assert kind in get_args(JobKind)
+
+    def test_job_kind_is_not_a_response_gate(self) -> None:
+        """A kind this SDK does not know yet still parses: ``Job.kind`` stays a string."""
+        job = Job(job_id="j-1", kind="some_future_kind", status="queued")
+        assert job.kind == "some_future_kind"
+
+
 class TestJobAccepted:
     def test_parse(self) -> None:
         j = JobAccepted(
@@ -405,6 +441,22 @@ class TestWebhookModels:
         assert wh.id == "wh-1"
         assert wh.enabled is True
         assert wh.event_types == ["render.succeeded"]
+        # Absent on a deployment that predates the pin.
+        assert wh.event_naming is None
+
+    def test_endpoint_event_naming_pin(self) -> None:
+        wh = WebhookEndpoint(id="wh-1", url="https://x.com/wh", event_naming="legacy")
+        assert wh.event_naming == "legacy"
+
+    def test_endpoint_event_naming_stays_a_plain_string(self) -> None:
+        """A naming a later API release adds still parses instead of raising."""
+        wh = WebhookEndpoint(id="wh-1", url="https://x.com/wh", event_naming="future")
+        assert wh.event_naming == "future"
+
+    def test_event_naming_literal_and_export(self) -> None:
+        assert get_args(WebhookEventNaming) == ("legacy", "current")
+        assert "WebhookEventNaming" in sudomock.__all__
+        assert sudomock.WebhookEventNaming is WebhookEventNaming
 
     def test_delivery(self) -> None:
         d = WebhookDelivery(

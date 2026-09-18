@@ -437,8 +437,30 @@ class TestAsyncAI:
         )
 
         async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
-            with pytest.raises(SudoMockError, match="expected '2d_create'"):
+            with pytest.raises(SudoMockError, match="expected a photo-mockup create job"):
                 await client.ai.wait_for_2d_mockup("video-job-001", poll_interval=0.0)
+
+    async def test_ai_wait_for_2d_mockup_accepts_family_kind(
+        self, mock_api: respx.MockRouter
+    ) -> None:
+        """A job stamped with the family kind is the same work as ``2d_create``."""
+        job_route = mock_api.get("/api/v1/jobs/2d-create-job-001").mock(
+            return_value=httpx.Response(
+                200,
+                json={**MOCK_2D_MOCKUP_JOB_SUCCEEDED_RESPONSE, "kind": "photo_mockup_create"},
+            )
+        )
+        detail_route = mock_api.get("/api/v1/sudoai/2d-mockups/2d-mockup-001").mock(
+            return_value=httpx.Response(200, json=MOCK_2D_MOCKUP_GET_RESPONSE)
+        )
+
+        async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
+            result = await client.ai.wait_for_2d_mockup("2d-create-job-001", poll_interval=0.0)
+
+        assert isinstance(result, TwoDMockup)
+        assert result.mockup_id == "2d-mockup-001"
+        assert len(job_route.calls) == 1
+        assert len(detail_route.calls) == 1
 
     async def test_ai_wait_for_2d_mockup_missing_mockup_uuid(
         self, mock_api: respx.MockRouter
