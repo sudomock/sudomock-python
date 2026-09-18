@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `JobKind`, a `Literal` of every `jobs.kind` value the API admits:
+  `render`, `video`, `upload`, `2d_create`, `2d_render`,
+  `photo_mockup_create` and `photo_mockup_render`. It is exported from the
+  package and types the `kind` filter of `client.jobs.list(...)`. A photo
+  mockup has two spellings of its kind, the published one (`2d_*`) and the
+  family's own name (`photo_mockup_*`); both name the same work, and a filter
+  on either spelling selects both.
+
+### Changed
+- `client.ai.wait_for_2d_mockup(...)` accepts a job of kind
+  `photo_mockup_create` as well as `2d_create`. A job of any other kind still
+  raises `SudoMockError`; the message now reads
+  `expected a photo-mockup create job ('2d_create' or 'photo_mockup_create')`
+  instead of `expected '2d_create'`.
+
+`Job.kind` and `JobAccepted.kind` stay plain strings on purpose, so a kind a
+later API release adds still parses instead of raising `ValidationError`.
+
 ## [0.9.1] - 2026-09-18
 
 ### Added
