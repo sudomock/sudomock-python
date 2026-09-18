@@ -4,6 +4,7 @@ Provides :class:`SyncTransport` and :class:`AsyncTransport` that wrap
 ``httpx.Client`` / ``httpx.AsyncClient`` with:
 
 * ``x-api-key`` authentication header
+* ``X-SudoMock-Client`` / ``User-Agent`` client identity (``python-sdk/<version>``)
 * Automatic error → exception mapping
 * Retry with exponential backoff for 429 / 5xx via *tenacity*
 * Configurable timeouts (default vs. render)
@@ -11,7 +12,6 @@ Provides :class:`SyncTransport` and :class:`AsyncTransport` that wrap
 
 from __future__ import annotations
 
-import importlib.metadata
 from typing import Any, Optional
 
 import httpx
@@ -23,6 +23,7 @@ from tenacity import (
 )
 
 from ._public_contract import public_error_code, public_error_text
+from ._version import __version__
 from .exceptions import (
     AuthenticationError,
     InsufficientCreditsError,
@@ -33,12 +34,10 @@ from .exceptions import (
     ValidationError,
 )
 
-try:
-    _SDK_VERSION = importlib.metadata.version("sudomock")
-except importlib.metadata.PackageNotFoundError:
-    _SDK_VERSION = "0.0.0-dev"
-
-_USER_AGENT = f"sudomock-python/{_SDK_VERSION}"
+# How this SDK introduces itself on every request. The same value goes out as
+# ``X-SudoMock-Client`` and as ``User-Agent`` so the API can tell which client
+# and which release made a call.
+CLIENT_ID = f"python-sdk/{__version__}"
 
 DEFAULT_BASE_URL = "https://api.sudomock.com"
 DEFAULT_TIMEOUT = 30.0
@@ -160,7 +159,8 @@ class SyncTransport:
             base_url=self._base_url,
             headers={
                 "x-api-key": self._api_key,
-                "user-agent": _USER_AGENT,
+                "x-sudomock-client": CLIENT_ID,
+                "user-agent": CLIENT_ID,
                 "accept": "application/json",
             },
             timeout=httpx.Timeout(self._timeout),
@@ -235,7 +235,8 @@ class AsyncTransport:
             base_url=self._base_url,
             headers={
                 "x-api-key": self._api_key,
-                "user-agent": _USER_AGENT,
+                "x-sudomock-client": CLIENT_ID,
+                "user-agent": CLIENT_ID,
                 "accept": "application/json",
             },
             timeout=httpx.Timeout(self._timeout),

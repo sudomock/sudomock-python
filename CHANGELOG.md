@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-09-18
+
 ### Added
+- Every request now carries `X-SudoMock-Client: python-sdk/<version>`, and the
+  `User-Agent` header sends the same value (it used to read
+  `sudomock-python/<version>`). The version is the installed package version,
+  the same value as `sudomock.__version__`.
 - `Usage.prepaid_balance` and `Usage.prepaid_balance_currency`, the money an
   account holds and spends per render. An account funded this way has no
   subscription allowance, so its three `credits_*` fields are legitimately `0`

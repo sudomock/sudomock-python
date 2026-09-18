@@ -10,7 +10,9 @@ from typing import Any, Optional
 # out, the list names an internal detail, so
 # the scrubber becomes the leak. Decoding at import keeps behaviour identical.
 _NON_PUBLIC_TEXT = re.compile(
-    base64.b64decode("_PATTERN_").decode(),
+    base64.b64decode(
+        "_PATTERN_"
+    ).decode(),
     re.IGNORECASE,
 )
 _PRIVATE_KEY = re.compile(
