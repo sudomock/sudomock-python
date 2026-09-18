@@ -286,6 +286,13 @@ ep = client.webhook_endpoints.create(
 )
 print(ep.secret)  # store this -- it signs deliveries
 
+# Photo-mockup events reach an endpoint in one spelling, its `event_naming`
+# pin: "current" (photo_mockup.*, photo_mockup_render.*) or "legacy"
+# (2d_mockup.*, 2d_render.*). A new endpoint is pinned to "current"; pass
+# "legacy" for a handler that still reads the older names, and re-pin later.
+print(ep.event_naming)  # "current"
+client.webhook_endpoints.update(ep.id, event_naming="legacy")
+
 # List / update / rotate / test / replay
 client.webhook_endpoints.list()
 client.webhook_endpoints.update(ep.id, enabled=False)
@@ -536,9 +543,9 @@ client = SudoMock(
 | Method | Description |
 |--------|-------------|
 | `client.webhook_endpoints.list()` | List registered endpoints |
-| `client.webhook_endpoints.create(url=, events=, description=None)` | Register an endpoint (empty `events` = all) |
+| `client.webhook_endpoints.create(url=, events=, description=None, event_naming=None)` | Register an endpoint (empty `events` = all; `event_naming` `"current"` / `"legacy"`, API default `"current"`) |
 | `client.webhook_endpoints.get(uuid)` | Get an endpoint |
-| `client.webhook_endpoints.update(uuid, url=, events=, description=, enabled=)` | Update an endpoint |
+| `client.webhook_endpoints.update(uuid, url=, events=, description=, enabled=, event_naming=)` | Update an endpoint (`event_naming` re-pins it to `"current"` or `"legacy"`) |
 | `client.webhook_endpoints.delete(uuid)` | Delete an endpoint |
 | `client.webhook_endpoints.rotate_secret(uuid)` | Rotate the signing secret |
 | `client.webhook_endpoints.test(uuid)` | Send a synthetic test delivery |

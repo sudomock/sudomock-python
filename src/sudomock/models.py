@@ -653,13 +653,29 @@ class VideoOptions(_Outcome):
 # ---------------------------------------------------------------------------
 
 
+# The two spellings of the photo-mockup events an endpoint can be pinned to:
+# ``"current"`` delivers ``photo_mockup.*`` / ``photo_mockup_render.*`` and
+# ``"legacy"`` delivers ``2d_mockup.*`` / ``2d_render.*``; the payload's
+# ``kind`` follows the same pin. Every other event is spelled the same under
+# both. The API pins a new endpoint to ``"current"`` unless told otherwise;
+# an endpoint that predates the current names stays on ``"legacy"`` until it
+# is re-pinned.
+WebhookEventNaming = Literal["legacy", "current"]
+
+
 class WebhookEndpoint(_Base):
     """A registered outbound webhook endpoint.
 
     Mirrors the API's ``WebhookEndpointResponse``: the identifier is ``id``,
-    subscribed events are ``event_types`` (empty = subscribe to all), and the
+    subscribed events are ``event_types`` (empty = subscribe to all), the
     ``secret`` is masked (``whsec_****<last4>``) except on create / rotate
-    where the full value is returned once.
+    where the full value is returned once, and ``event_naming`` is the
+    spelling of the photo-mockup events this endpoint receives.
+
+    :attr:`event_naming` is one of :data:`WebhookEventNaming` today; it stays
+    a plain string so a naming a later API release adds still parses instead
+    of raising ``ValidationError``. It is ``None`` on a deployment that
+    predates the field.
     """
 
     id: str
@@ -668,6 +684,7 @@ class WebhookEndpoint(_Base):
     description: Optional[str] = None
     event_types: list[str] = Field(default_factory=list)
     enabled: bool = True
+    event_naming: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 

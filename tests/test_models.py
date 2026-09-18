@@ -35,6 +35,7 @@ from sudomock.models import (
     VideoOptions,
     WebhookDelivery,
     WebhookEndpoint,
+    WebhookEventNaming,
 )
 
 
@@ -440,6 +441,22 @@ class TestWebhookModels:
         assert wh.id == "wh-1"
         assert wh.enabled is True
         assert wh.event_types == ["render.succeeded"]
+        # Absent on a deployment that predates the pin.
+        assert wh.event_naming is None
+
+    def test_endpoint_event_naming_pin(self) -> None:
+        wh = WebhookEndpoint(id="wh-1", url="https://x.com/wh", event_naming="legacy")
+        assert wh.event_naming == "legacy"
+
+    def test_endpoint_event_naming_stays_a_plain_string(self) -> None:
+        """A naming a later API release adds still parses instead of raising."""
+        wh = WebhookEndpoint(id="wh-1", url="https://x.com/wh", event_naming="future")
+        assert wh.event_naming == "future"
+
+    def test_event_naming_literal_and_export(self) -> None:
+        assert get_args(WebhookEventNaming) == ("legacy", "current")
+        assert "WebhookEventNaming" in sudomock.__all__
+        assert sudomock.WebhookEventNaming is WebhookEventNaming
 
     def test_delivery(self) -> None:
         d = WebhookDelivery(
