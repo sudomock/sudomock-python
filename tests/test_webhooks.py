@@ -128,6 +128,74 @@ class TestWebhookEndpointsCRUD:
         assert len(route.calls) == 1
 
 
+class TestWebhookEndpointEventNaming:
+    """The endpoint's ``event_naming`` pin: chosen on create, changed on update, read back."""
+
+    def test_create_sends_event_naming_when_given(self, mock_api: respx.MockRouter) -> None:
+        route = mock_api.post("/api/v1/webhook-endpoints").mock(
+            return_value=httpx.Response(201, json=MOCK_WEBHOOK_CREATE_RESPONSE)
+        )
+        with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
+            client.webhook_endpoints.create(
+                url="https://x.com/wh", events=["2d_mockup.ready"], event_naming="legacy"
+            )
+        body = json.loads(route.calls.last.request.content)
+        assert body["event_naming"] == "legacy"
+
+    def test_create_omits_event_naming_by_default(self, mock_api: respx.MockRouter) -> None:
+        """Left out, the field is not sent: the API pins a new endpoint to 'current'."""
+        route = mock_api.post("/api/v1/webhook-endpoints").mock(
+            return_value=httpx.Response(201, json=MOCK_WEBHOOK_CREATE_RESPONSE)
+        )
+        with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
+            client.webhook_endpoints.create(url="https://x.com/wh", events=[])
+        body = json.loads(route.calls.last.request.content)
+        assert "event_naming" not in body
+
+    def test_update_sends_event_naming(self, mock_api: respx.MockRouter) -> None:
+        route = mock_api.patch("/api/v1/webhook-endpoints/wh-uuid-1").mock(
+            return_value=httpx.Response(200, json=MOCK_WEBHOOK_GET_RESPONSE)
+        )
+        with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
+            client.webhook_endpoints.update("wh-uuid-1", event_naming="current")
+        body = json.loads(route.calls.last.request.content)
+        assert body == {"event_naming": "current"}
+
+    def test_update_without_event_naming_does_not_send_it(self, mock_api: respx.MockRouter) -> None:
+        route = mock_api.patch("/api/v1/webhook-endpoints/wh-uuid-1").mock(
+            return_value=httpx.Response(200, json=MOCK_WEBHOOK_GET_RESPONSE)
+        )
+        with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
+            client.webhook_endpoints.update("wh-uuid-1", enabled=True)
+        body = json.loads(route.calls.last.request.content)
+        assert body == {"enabled": True}
+
+    def test_endpoint_reports_its_event_naming_pin(self, mock_api: respx.MockRouter) -> None:
+        mock_api.get("/api/v1/webhook-endpoints/wh-uuid-1").mock(
+            return_value=httpx.Response(200, json=MOCK_WEBHOOK_GET_RESPONSE)
+        )
+        mock_api.get("/api/v1/webhook-endpoints").mock(
+            return_value=httpx.Response(200, json=MOCK_WEBHOOK_LIST_RESPONSE)
+        )
+        with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
+            single = client.webhook_endpoints.get("wh-uuid-1")
+            listed = client.webhook_endpoints.list()
+        assert single.event_naming == "current"
+        assert listed.webhook_endpoints[0].event_naming == "current"
+
+    def test_endpoint_that_predates_the_pin_parses_without_it(
+        self, mock_api: respx.MockRouter
+    ) -> None:
+        """A deployment without the field still parses; the pin reads as ``None``."""
+        older = {k: v for k, v in MOCK_WEBHOOK_GET_RESPONSE.items() if k != "event_naming"}
+        mock_api.get("/api/v1/webhook-endpoints/wh-uuid-1").mock(
+            return_value=httpx.Response(200, json=older)
+        )
+        with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
+            result = client.webhook_endpoints.get("wh-uuid-1")
+        assert result.event_naming is None
+
+
 # ---------------------------------------------------------------------------
 # Signature verification
 # ---------------------------------------------------------------------------
