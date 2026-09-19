@@ -304,11 +304,11 @@ class TestJobsList:
 class TestMockupUpdate:
     def test_rename(self, mock_api: respx.MockRouter) -> None:
         uuid = MOCK_MOCKUP["uuid"]
-        route = mock_api.patch(f"/api/v1/mockups/{uuid}").mock(
+        route = mock_api.patch(f"/api/v1/psd-mockups/{uuid}").mock(
             return_value=httpx.Response(200, json=MOCK_MOCKUP_GET_RESPONSE)
         )
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
-            result = client.mockups.update(uuid, name="Renamed")
+            result = client.psd_mockups.update(uuid, name="Renamed")
         assert isinstance(result, Mockup)
         body = json.loads(route.calls.last.request.content)
         assert body == {"name": "Renamed"}

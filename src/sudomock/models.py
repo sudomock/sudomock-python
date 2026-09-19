@@ -330,18 +330,18 @@ class PrintFile(_Outcome):
     """A single rendered output file.
 
     Returned by both the still-render path (``renders.create`` —
-    ``smart_object_uuid`` set, plus ``render_uuid``) and the SudoAI 2D-render
-    path (``ai.render`` — ``smart_object_uuid`` absent, ``duration_ms`` /
+    ``smart_object_uuid`` set, plus ``render_uuid``) and the photo mockup render
+    path (``photo_mockups.render`` — ``smart_object_uuid`` absent, ``duration_ms`` /
     ``export_format`` present instead). Fields that only appear on one path are
     optional so a single model covers both.
     """
 
     export_path: str
-    # Present on still renders; the SudoAI 2D-render print_files omit it.
+    # Present on still renders; photo mockup render print_files omit it.
     smart_object_uuid: Optional[str] = None
     # Present on still renders (route-level field, not always in the envelope).
     render_uuid: Optional[str] = None
-    # Present on SudoAI 2D-render print_files.
+    # Present on photo mockup render print_files.
     duration_ms: Optional[int] = None
     export_format: Optional[str] = None
 
@@ -367,14 +367,14 @@ class Render(_Outcome):
 
 
 # ---------------------------------------------------------------------------
-# SudoAI 2D render
+# Photo mockup render
 # ---------------------------------------------------------------------------
 
 
-class AIRender(_Outcome):
-    """Result of a SudoAI 2D-mockup render (``POST /sudoai/2d-mockups/{id}/render``).
+class PhotoMockupRender(_Outcome):
+    """Result of a photo mockup render (``POST /photo-mockups/{id}/render``).
 
-    The 2D-render ``print_files`` carry ``export_path`` / ``duration_ms`` /
+    The ``print_files`` carry ``export_path`` / ``duration_ms`` /
     ``export_format`` (no ``smart_object_uuid``). The render transaction id is
     exposed as ``render_uuid`` (a sibling of ``print_files`` in the ``data``
     envelope).
@@ -387,12 +387,12 @@ class AIRender(_Outcome):
     def url(self) -> str:
         """Shortcut: URL of the first print file."""
         if not self.print_files:
-            raise ValueError("AI render contains no print files")
+            raise ValueError("Photo mockup render contains no print files")
         return self.print_files[0].url
 
 
 class Quad(_Outcome):
-    """A printable four-point area on a 2D mockup."""
+    """A printable four-point area on a photo mockup."""
 
     print_area_id: str
     points: list[list[float]]
@@ -414,15 +414,15 @@ class FullSurface(_Outcome):
     surface_uuid: str
 
 
-class TwoDPrintAreasUpdate(_Outcome):
-    """Updated geometry returned after replacing 2D print areas."""
+class PhotoMockupPrintAreasUpdate(_Outcome):
+    """Updated geometry returned after replacing a photo mockup's print areas."""
 
     mockup_id: str
     print_areas: list[Quad] = Field(default_factory=list)
 
 
-class TwoDMockup(_Outcome):
-    """A SudoAI 2D mockup (``GET /sudoai/2d-mockups/{id}`` / list).
+class PhotoMockup(_Outcome):
+    """A photo mockup (``GET /photo-mockups/{id}`` / list).
 
     The detail endpoint returns ``quads``; the list endpoint returns
     ``print_areas``. Both are accepted via ``extra='allow'``.
@@ -444,17 +444,24 @@ class TwoDMockup(_Outcome):
     updated_at: Optional[datetime] = None
 
 
-class TwoDMockupList(_Outcome):
-    """Paginated list of SudoAI 2D mockups.
+class PhotoMockupList(_Outcome):
+    """Paginated list of photo mockups.
 
     The API returns ``{data: [...], total, limit, offset, success}``; the
     client lifts the array into ``mockups`` with the sibling pagination fields.
     """
 
-    mockups: list[TwoDMockup] = Field(default_factory=list)
+    mockups: list[PhotoMockup] = Field(default_factory=list)
     total: int
     limit: int
     offset: int
+
+
+# Earlier names of the photo mockup models: the same classes, kept importable.
+AIRender = PhotoMockupRender
+TwoDPrintAreasUpdate = PhotoMockupPrintAreasUpdate
+TwoDMockup = PhotoMockup
+TwoDMockupList = PhotoMockupList
 
 
 # ---------------------------------------------------------------------------
@@ -504,7 +511,7 @@ class JobAccepted(_Outcome):
     """Acknowledgement returned by a ``202 Accepted`` async submission.
 
     Returned by ``renders.create(..., is_async=True)``, ``psd.upload(...,
-    is_async=True)``, ``renders.create_video(...)``, and ``ai.create(...,
+    is_async=True)``, ``renders.create_video(...)``, and ``photo_mockups.create(...,
     is_async=True)``. Poll for completion with :meth:`jobs.get` or
     :meth:`jobs.wait` using :attr:`job_id`.
 

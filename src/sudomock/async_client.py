@@ -14,7 +14,7 @@ Usage::
     from sudomock import AsyncSudoMock
 
     async with AsyncSudoMock(api_key="sm_xxx") as client:
-        mockups = await client.mockups.list(limit=20)
+        mockups = await client.psd_mockups.list(limit=20)
         render = await client.renders.create(
             mockup_uuid="...",
             smart_objects=[{"uuid": "...", "asset": {"url": "https://..."}}],
@@ -34,6 +34,7 @@ from __future__ import annotations
 import asyncio
 import os
 import time
+import warnings
 from typing import Any, Literal, Optional, Union
 from uuid import uuid4
 
@@ -49,7 +50,6 @@ from .exceptions import JobFailedError, JobTimeoutError, SudoMockError
 from .models import (
     PHOTO_MOCKUP_CREATE_KINDS,
     AccountInfo,
-    AIRender,
     BackgroundRemoval,
     Job,
     JobAccepted,
@@ -57,6 +57,10 @@ from .models import (
     JobList,
     Mockup,
     MockupList,
+    PhotoMockup,
+    PhotoMockupList,
+    PhotoMockupPrintAreasUpdate,
+    PhotoMockupRender,
     PlanList,
     Render,
     StudioActionContext,
@@ -64,9 +68,6 @@ from .models import (
     StudioResultEvent,
     StudioSession,
     StudioSessionUi,
-    TwoDMockup,
-    TwoDMockupList,
-    TwoDPrintAreasUpdate,
     VideoOptions,
     WebhookDeliveryList,
     WebhookEndpoint,
@@ -81,8 +82,8 @@ from .models import (
 _StrList = list[str]
 
 
-class _AsyncMockupsResource:
-    """Async mockup template operations."""
+class _AsyncPsdMockupsResource:
+    """Async PSD mockup template operations (list, get, update, delete)."""
 
     def __init__(self, transport: AsyncTransport) -> None:
         self._transport = transport
@@ -115,7 +116,7 @@ class _AsyncMockupsResource:
         """
         resp = await self._transport.request(
             "GET",
-            "/api/v1/mockups",
+            "/api/v1/psd-mockups",
             params={
                 "limit": limit,
                 "offset": offset,
@@ -141,7 +142,7 @@ class _AsyncMockupsResource:
         Raises:
             NotFoundError: If the mockup does not exist.
         """
-        resp = await self._transport.request("GET", f"/api/v1/mockups/{uuid}")
+        resp = await self._transport.request("GET", f"/api/v1/psd-mockups/{uuid}")
         payload = resp.json()
         return Mockup.model_validate({**payload["data"], "warnings": payload.get("warnings") or []})
 
@@ -159,7 +160,7 @@ class _AsyncMockupsResource:
             NotFoundError: If the mockup does not exist.
         """
         resp = await self._transport.request(
-            "PATCH", f"/api/v1/mockups/{uuid}", json={"name": name}
+            "PATCH", f"/api/v1/psd-mockups/{uuid}", json={"name": name}
         )
         payload = resp.json()
         return Mockup.model_validate({**payload["data"], "warnings": payload.get("warnings") or []})
@@ -173,7 +174,7 @@ class _AsyncMockupsResource:
         Raises:
             NotFoundError: If the mockup does not exist.
         """
-        await self._transport.request("DELETE", f"/api/v1/mockups/{uuid}")
+        await self._transport.request("DELETE", f"/api/v1/psd-mockups/{uuid}")
 
 
 class _AsyncRendersResource:
@@ -597,8 +598,8 @@ class _AsyncWebhookEndpointsResource:
         )
 
 
-class _AsyncAIResource:
-    """Async SudoAI 2D-mockup operations."""
+class _AsyncPhotoMockupsResource:
+    """Async photo mockup operations (create, render, list, get, delete, print areas)."""
 
     def __init__(self, transport: AsyncTransport) -> None:
         self._transport = transport
@@ -612,8 +613,8 @@ class _AsyncAIResource:
         print_areas: Optional[list[dict[str, Any]]] = None,
         is_async: bool = False,
         idempotency_key: Optional[str] = None,
-    ) -> Union[TwoDMockup, JobAccepted]:
-        """Create a 2D mockup from a source image (costs 25 credits).
+    ) -> Union[PhotoMockup, JobAccepted]:
+        """Create a photo mockup from a source image (costs 25 credits).
 
         Exactly one source must be supplied. By default the mockup is created
         synchronously and returned in full (HTTP 201). Pass ``is_async=True`` to
@@ -633,7 +634,7 @@ class _AsyncAIResource:
                 UUID is generated when omitted.
 
         Returns:
-            :class:`TwoDMockup` (synchronous default), or :class:`JobAccepted`
+            :class:`PhotoMockup` (synchronous default), or :class:`JobAccepted`
             with ``job_id`` and ``status_url`` when ``is_async=True``.
 
         Raises:
@@ -657,7 +658,7 @@ class _AsyncAIResource:
 
         resp = await self._transport.request(
             "POST",
-            "/api/v1/sudoai/2d-mockups",
+            "/api/v1/photo-mockups",
             json=body,
             headers={"Idempotency-Key": idempotency_key},
         )
@@ -666,7 +667,7 @@ class _AsyncAIResource:
             # status_url} — no {success, data} envelope.
             return JobAccepted.model_validate(resp.json())
         # Sync default (201) returns the full mockup in a {success, data} envelope.
-        return TwoDMockup.model_validate(resp.json()["data"])
+        return PhotoMockup.model_validate(resp.json()["data"])
 
     async def wait_for_2d_mockup(
         self,
@@ -674,8 +675,8 @@ class _AsyncAIResource:
         *,
         poll_interval: float = 2.0,
         timeout: float = 180.0,
-    ) -> TwoDMockup:
-        """Wait for a 2D-mockup creation job and return its full details.
+    ) -> PhotoMockup:
+        """Wait for a photo mockup creation job and return its full details.
 
         Raises:
             JobFailedError: If creation fails. The exception exposes the
@@ -712,7 +713,7 @@ class _AsyncAIResource:
         self,
         mockup_id: str,
         print_areas: list[dict[str, Any]],
-    ) -> TwoDPrintAreasUpdate:
+    ) -> PhotoMockupPrintAreasUpdate:
         """Replace up to eight print areas.
 
         An empty list is accepted only when the API has verified every product
@@ -721,10 +722,10 @@ class _AsyncAIResource:
         """
         resp = await self._transport.request(
             "PUT",
-            f"/api/v1/sudoai/2d-mockups/{mockup_id}/print-areas",
+            f"/api/v1/photo-mockups/{mockup_id}/print-areas",
             json={"print_areas": print_areas},
         )
-        return TwoDPrintAreasUpdate.model_validate(resp.json()["data"])
+        return PhotoMockupPrintAreasUpdate.model_validate(resp.json()["data"])
 
     async def render(
         self,
@@ -733,17 +734,17 @@ class _AsyncAIResource:
         print_areas: list[dict[str, Any]],
         export_options: Optional[dict[str, Any]] = None,
         is_async: bool = False,
-    ) -> Union[AIRender, JobAccepted]:
-        """Render artwork onto an existing 2D mockup (costs 5 credits).
+    ) -> Union[PhotoMockupRender, JobAccepted]:
+        """Render artwork onto an existing photo mockup (costs 5 credits).
 
         By default the render runs synchronously and the finished
-        :class:`AIRender` is returned from the ``200`` response. Pass
+        :class:`PhotoMockupRender` is returned from the ``200`` response. Pass
         ``is_async=True`` to submit to the server-side queue and get a
         :class:`JobAccepted` (HTTP 202) to poll with :meth:`jobs.get` or
         :meth:`jobs.wait`; the terminal job carries ``result_url``.
 
         Args:
-            mockup_uuid: UUID of a previously-created 2D mockup (see
+            mockup_uuid: UUID of a previously-created photo mockup (see
                 :meth:`list` / :meth:`get`).
             print_areas: One or more target configs. Each is a dict with
                 exactly one identifier: ``uuid`` for a saved print area or
@@ -772,7 +773,7 @@ class _AsyncAIResource:
                 ``False`` (synchronous 200 + full render).
 
         Returns:
-            :class:`AIRender` (synchronous default) with ``print_files``,
+            :class:`PhotoMockupRender` (synchronous default) with ``print_files``,
             ``render_uuid`` and a convenience ``.url`` property, or
             :class:`JobAccepted` with ``job_id`` and ``status_url`` when
             ``is_async=True``.
@@ -792,16 +793,16 @@ class _AsyncAIResource:
 
         resp = await self._transport.request(
             "POST",
-            f"/api/v1/sudoai/2d-mockups/{mockup_uuid}/render",
+            f"/api/v1/photo-mockups/{mockup_uuid}/render",
             json=body,
             timeout=self._transport._render_timeout,
         )
         if is_async or resp.status_code == 202:
-            # Async submit (202) returns a BARE body {job_id, kind:"2d_render",
+            # Async submit (202) returns a BARE body {job_id, kind:"photo_mockup_render",
             # status, status_url} — no {success, data} envelope. The sync path
             # still wraps in {success, data}.
             return JobAccepted.model_validate(resp.json())
-        return AIRender.model_validate(resp.json()["data"])
+        return PhotoMockupRender.model_validate(resp.json()["data"])
 
     async def list(
         self,
@@ -809,11 +810,11 @@ class _AsyncAIResource:
         limit: Optional[int] = None,
         offset: Optional[int] = None,
         customizable_only: Optional[bool] = None,
-    ) -> TwoDMockupList:
-        """List your SudoAI 2D mockups (free; zero credits)."""
+    ) -> PhotoMockupList:
+        """List your photo mockups (free; zero credits)."""
         resp = await self._transport.request(
             "GET",
-            "/api/v1/sudoai/2d-mockups",
+            "/api/v1/photo-mockups",
             params={
                 "limit": limit,
                 "offset": offset,
@@ -821,29 +822,29 @@ class _AsyncAIResource:
             },
         )
         payload = resp.json()
-        return TwoDMockupList(
+        return PhotoMockupList(
             mockups=payload["data"],
             total=payload["total"],
             limit=payload["limit"],
             offset=payload["offset"],
         )
 
-    async def get(self, mockup_id: str) -> TwoDMockup:
-        """Get a single 2D mockup by id (free; zero credits).
+    async def get(self, mockup_id: str) -> PhotoMockup:
+        """Get a single photo mockup by id (free; zero credits).
 
         Raises:
-            NotFoundError: If the 2D mockup does not exist.
+            NotFoundError: If the photo mockup does not exist.
         """
-        resp = await self._transport.request("GET", f"/api/v1/sudoai/2d-mockups/{mockup_id}")
-        return TwoDMockup.model_validate(resp.json()["data"])
+        resp = await self._transport.request("GET", f"/api/v1/photo-mockups/{mockup_id}")
+        return PhotoMockup.model_validate(resp.json()["data"])
 
     async def delete(self, mockup_id: str) -> None:
-        """Delete a 2D mockup and all of its associated data (free; zero credits).
+        """Delete a photo mockup and all of its associated data (free; zero credits).
 
         Raises:
-            NotFoundError: If the 2D mockup does not exist.
+            NotFoundError: If the photo mockup does not exist.
         """
-        await self._transport.request("DELETE", f"/api/v1/sudoai/2d-mockups/{mockup_id}")
+        await self._transport.request("DELETE", f"/api/v1/photo-mockups/{mockup_id}")
 
 
 class _AsyncImagesResource:
@@ -1031,7 +1032,7 @@ class AsyncSudoMock:
     Usage::
 
         async with AsyncSudoMock(api_key="sm_xxx") as client:
-            mockups = await client.mockups.list()
+            mockups = await client.psd_mockups.list()
     """
 
     def __init__(
@@ -1065,16 +1066,36 @@ class AsyncSudoMock:
         )
 
         # Resource namespaces
-        self.mockups = _AsyncMockupsResource(self._transport)
+        self.psd_mockups = _AsyncPsdMockupsResource(self._transport)
         self.renders = _AsyncRendersResource(self._transport)
         self.jobs = _AsyncJobsResource(self._transport)
         self.psd = _AsyncPsdResource(self._transport)
-        self.ai = _AsyncAIResource(self._transport)
+        self.photo_mockups = _AsyncPhotoMockupsResource(self._transport)
         self.images = _AsyncImagesResource(self._transport)
         self.account = _AsyncAccountResource(self._transport)
         self.studio = _AsyncStudioResource(self._transport)
         self.packages = _AsyncPackagesResource(self._transport)
         self.webhook_endpoints = _AsyncWebhookEndpointsResource(self._transport)
+
+    @property
+    def ai(self) -> _AsyncPhotoMockupsResource:
+        """Earlier name of :attr:`photo_mockups`; emits a ``DeprecationWarning``."""
+        warnings.warn(
+            "AsyncSudoMock.ai is deprecated; use AsyncSudoMock.photo_mockups instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.photo_mockups
+
+    @property
+    def mockups(self) -> _AsyncPsdMockupsResource:
+        """Earlier name of :attr:`psd_mockups`; emits a ``DeprecationWarning``."""
+        warnings.warn(
+            "AsyncSudoMock.mockups is deprecated; use AsyncSudoMock.psd_mockups instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.psd_mockups
 
     async def close(self) -> None:
         """Close the underlying HTTP connection pool."""
