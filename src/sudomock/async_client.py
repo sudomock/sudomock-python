@@ -1087,6 +1087,11 @@ class AsyncSudoMock:
         )
         return self.photo_mockups
 
+    @ai.setter
+    def ai(self, value: object) -> None:
+        """Assignment still works so existing test doubles keep running."""
+        self.photo_mockups = value  # type: ignore[assignment]
+
     @property
     def mockups(self) -> _AsyncPsdMockupsResource:
         """Earlier name of :attr:`psd_mockups`; emits a ``DeprecationWarning``."""
@@ -1096,6 +1101,11 @@ class AsyncSudoMock:
             stacklevel=2,
         )
         return self.psd_mockups
+
+    @mockups.setter
+    def mockups(self, value: object) -> None:
+        """Assignment still works so existing test doubles keep running."""
+        self.psd_mockups = value  # type: ignore[assignment]
 
     async def close(self) -> None:
         """Close the underlying HTTP connection pool."""
