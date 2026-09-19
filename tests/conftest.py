@@ -113,9 +113,9 @@ MOCK_TEXT_RENDER_RESPONSE = {
     "warnings": [{"code": "TEXT_FIT_SHRUNK", "message": "Text was resized to fit."}],
 }
 
-# SudoAI 2D render: print_files carry export_path / duration_ms / export_format
+# Photo mockup render: print_files carry export_path / duration_ms / export_format
 # (NO smart_object_uuid), plus a sibling render_uuid. Matches
-# POST /sudoai/2d-mockups/{id}/render.
+# POST /photo-mockups/{id}/render.
 MOCK_AI_RENDER_RESPONSE = {
     "success": True,
     "data": {
@@ -130,12 +130,12 @@ MOCK_AI_RENDER_RESPONSE = {
     },
 }
 
-# SudoAI 2D render async submit (POST /sudoai/2d-mockups/{id}/render with
-# is_async=true) returns a BARE 202 body {job_id, kind:"2d_render", status,
+# Photo mockup render async submit (POST /photo-mockups/{id}/render with
+# is_async=true) returns a BARE 202 body {job_id, kind:"photo_mockup_render", status,
 # status_url} — no {success, data} envelope.
 MOCK_AI_RENDER_JOB_ACCEPTED_RESPONSE = {
     "job_id": "2d-render-job-001",
-    "kind": "2d_render",
+    "kind": "photo_mockup_render",
     "status": "queued",
     "status_url": "/api/v1/jobs/2d-render-job-001",
 }
@@ -151,7 +151,7 @@ MOCK_REMOVE_BACKGROUND_RESPONSE = {
     },
 }
 
-# 2D mockup detail (GET /sudoai/2d-mockups/{id}) — has quads (with optional name).
+# Photo mockup detail (GET /photo-mockups/{id}) — has quads (with optional name).
 MOCK_2D_MOCKUP = {
     "mockup_id": "2d-mockup-001",
     "name": "Flat Tee Front",
@@ -170,11 +170,11 @@ MOCK_2D_MOCKUP = {
 
 MOCK_2D_MOCKUP_GET_RESPONSE = {"data": MOCK_2D_MOCKUP, "success": True}
 
-# Sync create (POST /sudoai/2d-mockups, default is_async=false) returns 201 with
+# Sync create (POST /photo-mockups, default is_async=false) returns 201 with
 # the full mockup in the {success, data} envelope — same shape as the detail GET.
 MOCK_2D_MOCKUP_CREATE_RESPONSE = MOCK_2D_MOCKUP_GET_RESPONSE
 
-# 2D mockup list (GET /sudoai/2d-mockups) — data array + sibling pagination.
+# Photo mockup list (GET /photo-mockups) — data array + sibling pagination.
 MOCK_2D_MOCKUP_LIST_RESPONSE = {
     "data": [
         {
@@ -210,29 +210,29 @@ MOCK_2D_MOCKUP_DELETE_RESPONSE = {"data": {"deleted": True}, "success": True}
 
 MOCK_2D_MOCKUP_JOB_ACCEPTED_RESPONSE = {
     "job_id": "2d-create-job-001",
-    "kind": "2d_create",
+    "kind": "photo_mockup_create",
     "status": "queued",
     "status_url": "/api/v1/jobs/2d-create-job-001",
 }
 
 MOCK_2D_MOCKUP_JOB_QUEUED_RESPONSE = {
     "job_id": "2d-create-job-001",
-    "kind": "2d_create",
+    "kind": "photo_mockup_create",
     "status": "queued",
 }
 
 MOCK_2D_MOCKUP_JOB_SUCCEEDED_RESPONSE = {
     "job_id": "2d-create-job-001",
-    "kind": "2d_create",
+    "kind": "photo_mockup_create",
     "status": "succeeded",
-    "result_url": "/api/v1/sudoai/2d-mockups/2d-mockup-001",
+    "result_url": "/api/v1/photo-mockups/2d-mockup-001",
     "mockup_uuid": "2d-mockup-001",
     "error": None,
 }
 
 MOCK_2D_MOCKUP_JOB_FAILED_RESPONSE = {
     "job_id": "2d-create-job-001",
-    "kind": "2d_create",
+    "kind": "photo_mockup_create",
     "status": "failed",
     "result_url": None,
     "mockup_uuid": None,
