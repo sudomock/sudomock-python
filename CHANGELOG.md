@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-09-19
+
+### Added
+- `client.photo_mockups`, the photo mockup resource (`create`,
+  `wait_for_2d_mockup`, `update_2d_print_areas`, `render`, `list`, `get`,
+  `delete`), and `client.psd_mockups`, the PSD mockup template resource
+  (`list`, `get`, `update`, `delete`), on both the sync and the asyncio client.
+  Method names and signatures are unchanged.
+- `PhotoMockup`, `PhotoMockupList`, `PhotoMockupPrintAreasUpdate` and
+  `PhotoMockupRender`, exported from the package. Each is the same class as
+  `TwoDMockup`, `TwoDMockupList`, `TwoDPrintAreasUpdate` and `AIRender`, so an
+  `isinstance` check written against either name keeps passing.
+
+### Changed
+- The photo mockup resource now calls `/api/v1/photo-mockups` (was
+  `/api/v1/sudoai/2d-mockups`) and the PSD template resource calls
+  `/api/v1/psd-mockups` (was `/api/v1/mockups`). The API keeps serving the
+  earlier paths, so an SDK pinned below 0.11.0 keeps working.
+- **Job kinds on the family path.** An async submission made through
+  `/api/v1/photo-mockups` comes back with `kind` `photo_mockup_create`
+  (create) or `photo_mockup_render` (render), where 0.10.0 and earlier saw
+  `2d_create` / `2d_render`. That is the `kind` on the `JobAccepted` returned by
+  `photo_mockups.create(..., is_async=True)` and
+  `photo_mockups.render(..., is_async=True)`, and on the `Job` returned by
+  `jobs.get` / `jobs.wait` for those jobs. Code that compares `kind` against the
+  literal `"2d_create"` or `"2d_render"` must compare against the pair:
+  `PHOTO_MOCKUP_CREATE_KINDS` and `PHOTO_MOCKUP_RENDER_KINDS` in
+  `sudomock.models` hold both spellings, `jobs.list(kind=...)` selects both
+  with either spelling, and `wait_for_2d_mockup` keeps accepting either.
+- The `.url` shortcut of `PhotoMockupRender` raises
+  `ValueError("Photo mockup render contains no print files")` when there is
+  nothing to point at; the message used to carry the product's earlier name.
+- Docstrings and the README name the product "photo mockup" throughout.
+
+### Deprecated
+- `client.ai` and `client.mockups`. Both keep working and return the very same
+  resource objects as `client.photo_mockups` / `client.psd_mockups`; each
+  access emits a `DeprecationWarning` naming the replacement.
+
 ## [0.10.0] - 2026-09-18
 
 ### Added
@@ -253,7 +292,8 @@ parses is still present and still required.
 - Typed Pydantic v2 response models, typed exceptions, and tenacity-backed retry
   with exponential backoff.
 
-[Unreleased]: https://github.com/sudomock/sudomock-python/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/sudomock/sudomock-python/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/sudomock/sudomock-python/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/sudomock/sudomock-python/compare/v0.9.1...v0.10.0
 [0.7.0]: https://github.com/sudomock/sudomock-python/compare/v0.6.1...v0.7.0
 [0.2.0]: https://github.com/sudomock/sudomock-python/compare/v0.1.0...v0.2.0

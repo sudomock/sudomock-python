@@ -5,7 +5,7 @@ Usage::
     from sudomock import SudoMock
 
     client = SudoMock(api_key="sm_xxx")  # or set SUDOMOCK_API_KEY env var
-    mockups = client.mockups.list(limit=20)
+    mockups = client.psd_mockups.list(limit=20)
     render = client.renders.create(
         mockup_uuid="...",
         smart_objects=[{"uuid": "...", "asset": {"url": "https://..."}}],
@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import os
 import time
+import warnings
 from typing import Any, Literal, Optional, Union
 from uuid import uuid4
 
@@ -33,7 +34,6 @@ from .exceptions import JobFailedError, JobTimeoutError, SudoMockError
 from .models import (
     PHOTO_MOCKUP_CREATE_KINDS,
     AccountInfo,
-    AIRender,
     BackgroundRemoval,
     Job,
     JobAccepted,
@@ -41,6 +41,10 @@ from .models import (
     JobList,
     Mockup,
     MockupList,
+    PhotoMockup,
+    PhotoMockupList,
+    PhotoMockupPrintAreasUpdate,
+    PhotoMockupRender,
     PlanList,
     Render,
     StudioActionContext,
@@ -48,9 +52,6 @@ from .models import (
     StudioResultEvent,
     StudioSession,
     StudioSessionUi,
-    TwoDMockup,
-    TwoDMockupList,
-    TwoDPrintAreasUpdate,
     VideoOptions,
     WebhookDeliveryList,
     WebhookEndpoint,
@@ -65,8 +66,8 @@ from .models import (
 _StrList = list[str]
 
 
-class _MockupsResource:
-    """Mockup template operations (list, get, delete)."""
+class _PsdMockupsResource:
+    """PSD mockup template operations (list, get, update, delete)."""
 
     def __init__(self, transport: SyncTransport) -> None:
         self._transport = transport
@@ -99,7 +100,7 @@ class _MockupsResource:
         """
         resp = self._transport.request(
             "GET",
-            "/api/v1/mockups",
+            "/api/v1/psd-mockups",
             params={
                 "limit": limit,
                 "offset": offset,
@@ -125,7 +126,7 @@ class _MockupsResource:
         Raises:
             NotFoundError: If the mockup does not exist.
         """
-        resp = self._transport.request("GET", f"/api/v1/mockups/{uuid}")
+        resp = self._transport.request("GET", f"/api/v1/psd-mockups/{uuid}")
         payload = resp.json()
         return Mockup.model_validate({**payload["data"], "warnings": payload.get("warnings") or []})
 
@@ -142,7 +143,7 @@ class _MockupsResource:
         Raises:
             NotFoundError: If the mockup does not exist.
         """
-        resp = self._transport.request("PATCH", f"/api/v1/mockups/{uuid}", json={"name": name})
+        resp = self._transport.request("PATCH", f"/api/v1/psd-mockups/{uuid}", json={"name": name})
         payload = resp.json()
         return Mockup.model_validate({**payload["data"], "warnings": payload.get("warnings") or []})
 
@@ -155,7 +156,7 @@ class _MockupsResource:
         Raises:
             NotFoundError: If the mockup does not exist.
         """
-        self._transport.request("DELETE", f"/api/v1/mockups/{uuid}")
+        self._transport.request("DELETE", f"/api/v1/psd-mockups/{uuid}")
 
 
 class _RendersResource:
@@ -636,8 +637,8 @@ class _WebhookEndpointsResource:
         )
 
 
-class _AIResource:
-    """SudoAI 2D-mockup operations."""
+class _PhotoMockupsResource:
+    """Photo mockup operations (create, render, list, get, delete, print areas)."""
 
     def __init__(self, transport: SyncTransport) -> None:
         self._transport = transport
@@ -651,8 +652,8 @@ class _AIResource:
         print_areas: Optional[list[dict[str, Any]]] = None,
         is_async: bool = False,
         idempotency_key: Optional[str] = None,
-    ) -> Union[TwoDMockup, JobAccepted]:
-        """Create a 2D mockup from a source image (costs 25 credits).
+    ) -> Union[PhotoMockup, JobAccepted]:
+        """Create a photo mockup from a source image (costs 25 credits).
 
         Exactly one source must be supplied. By default the mockup is created
         synchronously and returned in full (HTTP 201). Pass ``is_async=True`` to
@@ -672,7 +673,7 @@ class _AIResource:
                 UUID is generated when omitted.
 
         Returns:
-            :class:`TwoDMockup` (synchronous default), or :class:`JobAccepted`
+            :class:`PhotoMockup` (synchronous default), or :class:`JobAccepted`
             with ``job_id`` and ``status_url`` when ``is_async=True``.
 
         Raises:
@@ -696,7 +697,7 @@ class _AIResource:
 
         resp = self._transport.request(
             "POST",
-            "/api/v1/sudoai/2d-mockups",
+            "/api/v1/photo-mockups",
             json=body,
             headers={"Idempotency-Key": idempotency_key},
         )
@@ -705,7 +706,7 @@ class _AIResource:
             # status_url} — no {success, data} envelope.
             return JobAccepted.model_validate(resp.json())
         # Sync default (201) returns the full mockup in a {success, data} envelope.
-        return TwoDMockup.model_validate(resp.json()["data"])
+        return PhotoMockup.model_validate(resp.json()["data"])
 
     def wait_for_2d_mockup(
         self,
@@ -713,8 +714,8 @@ class _AIResource:
         *,
         poll_interval: float = 2.0,
         timeout: float = 180.0,
-    ) -> TwoDMockup:
-        """Wait for a 2D-mockup creation job and return its full details.
+    ) -> PhotoMockup:
+        """Wait for a photo mockup creation job and return its full details.
 
         Raises:
             JobFailedError: If creation fails. The exception exposes the
@@ -751,11 +752,11 @@ class _AIResource:
         self,
         mockup_id: str,
         print_areas: list[dict[str, Any]],
-    ) -> TwoDPrintAreasUpdate:
-        """Replace a 2D mockup's print areas (free; zero credits).
+    ) -> PhotoMockupPrintAreasUpdate:
+        """Replace a photo mockup's print areas (free; zero credits).
 
         Args:
-            mockup_id: 2D mockup identifier.
+            mockup_id: photo mockup identifier.
             print_areas: Up to eight print areas, each with four ``[x, y]``
                 points and an optional ``name``. An empty list is accepted only
                 when the API has verified every product surface as printable;
@@ -766,10 +767,10 @@ class _AIResource:
         """
         resp = self._transport.request(
             "PUT",
-            f"/api/v1/sudoai/2d-mockups/{mockup_id}/print-areas",
+            f"/api/v1/photo-mockups/{mockup_id}/print-areas",
             json={"print_areas": print_areas},
         )
-        return TwoDPrintAreasUpdate.model_validate(resp.json()["data"])
+        return PhotoMockupPrintAreasUpdate.model_validate(resp.json()["data"])
 
     def render(
         self,
@@ -778,17 +779,17 @@ class _AIResource:
         print_areas: list[dict[str, Any]],
         export_options: Optional[dict[str, Any]] = None,
         is_async: bool = False,
-    ) -> Union[AIRender, JobAccepted]:
-        """Render artwork onto an existing 2D mockup (costs 5 credits).
+    ) -> Union[PhotoMockupRender, JobAccepted]:
+        """Render artwork onto an existing photo mockup (costs 5 credits).
 
         By default the render runs synchronously and the finished
-        :class:`AIRender` is returned from the ``200`` response. Pass
+        :class:`PhotoMockupRender` is returned from the ``200`` response. Pass
         ``is_async=True`` to submit to the server-side queue and get a
         :class:`JobAccepted` (HTTP 202) to poll with :meth:`SudoMock.jobs.get`
         or :meth:`SudoMock.jobs.wait`; the terminal job carries ``result_url``.
 
         Args:
-            mockup_uuid: UUID of a previously-created 2D mockup (see
+            mockup_uuid: UUID of a previously-created photo mockup (see
                 :meth:`list` / :meth:`get`).
             print_areas: One or more target configs. Each is a dict with
                 exactly one identifier: ``uuid`` for a saved print area or
@@ -817,7 +818,7 @@ class _AIResource:
                 ``False`` (synchronous 200 + full render).
 
         Returns:
-            :class:`AIRender` (synchronous default) with ``print_files``,
+            :class:`PhotoMockupRender` (synchronous default) with ``print_files``,
             ``render_uuid`` and a convenience ``.url`` property, or
             :class:`JobAccepted` with ``job_id`` and ``status_url`` when
             ``is_async=True``.
@@ -837,16 +838,16 @@ class _AIResource:
 
         resp = self._transport.request(
             "POST",
-            f"/api/v1/sudoai/2d-mockups/{mockup_uuid}/render",
+            f"/api/v1/photo-mockups/{mockup_uuid}/render",
             json=body,
             timeout=self._transport._render_timeout,
         )
         if is_async or resp.status_code == 202:
-            # Async submit (202) returns a BARE body {job_id, kind:"2d_render",
+            # Async submit (202) returns a BARE body {job_id, kind:"photo_mockup_render",
             # status, status_url} — no {success, data} envelope. The sync path
             # still wraps in {success, data}.
             return JobAccepted.model_validate(resp.json())
-        return AIRender.model_validate(resp.json()["data"])
+        return PhotoMockupRender.model_validate(resp.json()["data"])
 
     def list(
         self,
@@ -854,8 +855,8 @@ class _AIResource:
         limit: Optional[int] = None,
         offset: Optional[int] = None,
         customizable_only: Optional[bool] = None,
-    ) -> TwoDMockupList:
-        """List your SudoAI 2D mockups (free; zero credits).
+    ) -> PhotoMockupList:
+        """List your photo mockups (free; zero credits).
 
         Args:
             limit: Page size, 1..100 (default server-side: 20).
@@ -863,12 +864,12 @@ class _AIResource:
             customizable_only: Return only mockups ready for shopper customization.
 
         Returns:
-            :class:`TwoDMockupList` with ``mockups``, ``total``, ``limit``,
+            :class:`PhotoMockupList` with ``mockups``, ``total``, ``limit``,
             ``offset``.
         """
         resp = self._transport.request(
             "GET",
-            "/api/v1/sudoai/2d-mockups",
+            "/api/v1/photo-mockups",
             params={
                 "limit": limit,
                 "offset": offset,
@@ -876,29 +877,29 @@ class _AIResource:
             },
         )
         payload = resp.json()
-        return TwoDMockupList(
+        return PhotoMockupList(
             mockups=payload["data"],
             total=payload["total"],
             limit=payload["limit"],
             offset=payload["offset"],
         )
 
-    def get(self, mockup_id: str) -> TwoDMockup:
-        """Get a single 2D mockup by id (free; zero credits).
+    def get(self, mockup_id: str) -> PhotoMockup:
+        """Get a single photo mockup by id (free; zero credits).
 
         Raises:
-            NotFoundError: If the 2D mockup does not exist.
+            NotFoundError: If the photo mockup does not exist.
         """
-        resp = self._transport.request("GET", f"/api/v1/sudoai/2d-mockups/{mockup_id}")
-        return TwoDMockup.model_validate(resp.json()["data"])
+        resp = self._transport.request("GET", f"/api/v1/photo-mockups/{mockup_id}")
+        return PhotoMockup.model_validate(resp.json()["data"])
 
     def delete(self, mockup_id: str) -> None:
-        """Delete a 2D mockup and all of its associated data (free; zero credits).
+        """Delete a photo mockup and all of its associated data (free; zero credits).
 
         Raises:
-            NotFoundError: If the 2D mockup does not exist.
+            NotFoundError: If the photo mockup does not exist.
         """
-        self._transport.request("DELETE", f"/api/v1/sudoai/2d-mockups/{mockup_id}")
+        self._transport.request("DELETE", f"/api/v1/photo-mockups/{mockup_id}")
 
 
 class _ImagesResource:
@@ -921,7 +922,7 @@ class _ImagesResource:
         render instead, set
         ``"remove_background": True`` on the render asset
         (:meth:`SudoMock.renders.create`) or print area
-        (:meth:`SudoMock.ai.render`).
+        (:meth:`SudoMock.photo_mockups.render`).
 
         Exactly one image source must be supplied. Credits are refunded
         automatically if processing fails.
@@ -1087,12 +1088,12 @@ class SudoMock:
     Usage::
 
         client = SudoMock(api_key="sm_xxx")
-        mockups = client.mockups.list()
+        mockups = client.psd_mockups.list()
         client.close()
 
         # Or as a context manager:
         with SudoMock(api_key="sm_xxx") as client:
-            mockups = client.mockups.list()
+            mockups = client.psd_mockups.list()
     """
 
     def __init__(
@@ -1126,16 +1127,46 @@ class SudoMock:
         )
 
         # Resource namespaces
-        self.mockups = _MockupsResource(self._transport)
+        self.psd_mockups = _PsdMockupsResource(self._transport)
         self.renders = _RendersResource(self._transport)
         self.jobs = _JobsResource(self._transport)
         self.psd = _PsdResource(self._transport)
-        self.ai = _AIResource(self._transport)
+        self.photo_mockups = _PhotoMockupsResource(self._transport)
         self.images = _ImagesResource(self._transport)
         self.account = _AccountResource(self._transport)
         self.studio = _StudioResource(self._transport)
         self.packages = _PackagesResource(self._transport)
         self.webhook_endpoints = _WebhookEndpointsResource(self._transport)
+
+    @property
+    def ai(self) -> _PhotoMockupsResource:
+        """Earlier name of :attr:`photo_mockups`; emits a ``DeprecationWarning``."""
+        warnings.warn(
+            "SudoMock.ai is deprecated; use SudoMock.photo_mockups instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.photo_mockups
+
+    @ai.setter
+    def ai(self, value: object) -> None:
+        """Assignment still works so existing test doubles keep running."""
+        self.photo_mockups = value  # type: ignore[assignment]
+
+    @property
+    def mockups(self) -> _PsdMockupsResource:
+        """Earlier name of :attr:`psd_mockups`; emits a ``DeprecationWarning``."""
+        warnings.warn(
+            "SudoMock.mockups is deprecated; use SudoMock.psd_mockups instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.psd_mockups
+
+    @mockups.setter
+    def mockups(self, value: object) -> None:
+        """Assignment still works so existing test doubles keep running."""
+        self.psd_mockups = value  # type: ignore[assignment]
 
     def close(self) -> None:
         """Close the underlying HTTP connection pool."""

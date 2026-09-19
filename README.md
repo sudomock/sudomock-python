@@ -2,7 +2,7 @@
 
 Official Python client for the [SudoMock](https://sudomock.com) Mockup Generator API.
 
-Generate photorealistic product mockups from PSD templates or 2D mockups -- all from your Python code.
+Generate photorealistic product mockups from PSD templates or photo mockups -- all from your Python code.
 
 [![PyPI](https://img.shields.io/pypi/v/sudomock)](https://pypi.org/project/sudomock/)
 [![Python](https://img.shields.io/pypi/pyversions/sudomock)](https://pypi.org/project/sudomock/)
@@ -24,7 +24,7 @@ from sudomock import SudoMock
 client = SudoMock(api_key="sm_your_api_key")
 
 # 2. List your mockup templates
-mockups = client.mockups.list(limit=10)
+mockups = client.psd_mockups.list(limit=10)
 for m in mockups.mockups:
     print(f"{m.name} ({m.uuid})")
 
@@ -46,7 +46,7 @@ outputs. `smart_objects` is optional for text-only renders, and `fit` defaults
 to `"overflow"`.
 
 ```python
-mockup = client.mockups.get("mockup-uuid")
+mockup = client.psd_mockups.get("mockup-uuid")
 name_layer = next(layer for layer in mockup.text_layers if layer.name == "Customer Name")
 if not name_layer.is_editable:
     raise ValueError("Customer Name is not editable")
@@ -79,7 +79,7 @@ from sudomock import AsyncSudoMock
 
 async def main():
     async with AsyncSudoMock(api_key="sm_your_api_key") as client:
-        mockups = await client.mockups.list()
+        mockups = await client.psd_mockups.list()
         render = await client.renders.create(
             mockup_uuid=mockups.mockups[0].uuid,
             smart_objects=[{
@@ -92,9 +92,9 @@ async def main():
 asyncio.run(main())
 ```
 
-## 2D mockups via API
+## Photo mockups via API
 
-Create a 2D mockup from a product image, wait until its print areas are ready,
+Create a photo mockup from a product image, wait until its print areas are ready,
 then render your artwork. Creation costs 25 credits and rendering costs 5 credits.
 Unsuccessful creations are refunded automatically.
 
@@ -119,14 +119,14 @@ from sudomock import SudoMock
 
 client = SudoMock(api_key="sm_your_api_key")
 
-# Create the 2D mockup (synchronous by default -- returns the finished mockup)
-mockup = client.ai.create(
+# Create the photo mockup (synchronous by default -- returns the finished mockup)
+mockup = client.photo_mockups.create(
     source_url="https://example.com/product.jpg",
     name="Product Front",
     idempotency_key="product-front-001",
 )
 
-render = client.ai.render(
+render = client.photo_mockups.render(
     mockup_uuid=mockup.mockup_id,
     print_areas=[{
         "uuid": mockup.quads[0].print_area_id,
@@ -137,7 +137,7 @@ print(render.url)
 
 # A product surface is rendered directly with its surface UUID.
 if mockup.surfaces:
-    render = client.ai.render(
+    render = client.photo_mockups.render(
         mockup_uuid=mockup.mockup_id,
         print_areas=[{
             "surface_uuid": mockup.surfaces[0].surface_uuid,
@@ -146,7 +146,7 @@ if mockup.surfaces:
     )
 
 # Async variant: submit to the server queue and poll (returns a JobAccepted)
-job = client.ai.render(
+job = client.photo_mockups.render(
     mockup_uuid=mockup.mockup_id,
     print_areas=[{
         "uuid": mockup.quads[0].print_area_id,
@@ -234,7 +234,7 @@ render = client.renders.create(
 ```
 
 To clean artwork inline during a render instead, set `remove_background` on the
-render asset or 2D print area. It adds **25 credits per unique artwork** to the
+render asset or photo mockup print area. It adds **25 credits per unique artwork** to the
 render (the same artwork reused across several smart objects or print areas is
 charged once).
 
@@ -248,8 +248,8 @@ client.renders.create(
     }],
 )
 
-# 2D render
-client.ai.render(
+# Photo mockup render
+client.photo_mockups.render(
     mockup_uuid="mockup-uuid",
     print_areas=[{
         "uuid": "print-area-uuid",
@@ -383,8 +383,8 @@ session = client.studio.create_session(
 # Keep session.bootstrap_secret on the trusted parent page for the required handshake.
 ```
 
-`allowed_origin`, `product_id`, and `variant_id` work for both PSD and 2D
-sessions. PSD supports `customize`; 2D supports `setup` and `customize`.
+`allowed_origin`, `product_id`, and `variant_id` work for both PSD and photo mockup
+sessions. PSD supports `customize`; photo mockup supports `setup` and `customize`.
 Every response includes `session`, `expires_in`, `message_session_id`, and
 `bootstrap_secret`.
 Never put the bootstrap secret in the iframe URL or logs.
@@ -449,7 +449,7 @@ fraction, so it has no denominator to be a percentage of.
 ### Pricing in one paragraph
 
 Pay as you go is the entry tier and needs no subscription: one PSD render costs
-$0.10, so $1 covers 10, and the minimum first payment is $5. 2D Mockups and video
+$0.10, so $1 covers 10, and the minimum first payment is $5. Photo mockups and video
 are priced by what they cost to produce, not at the flat render rate. Volume plans
 start at $25/month for 5,000 renders. A new account gets 500 credits once, with no
 card required to spend them, but until a card is verified its renders are
@@ -479,10 +479,10 @@ client = SudoMock(
 
 | Method | Description |
 |--------|-------------|
-| `client.mockups.list(limit=, offset=, name=, created_after=, created_before=, sort=, order=)` | List mockup templates (filter by `name`) |
-| `client.mockups.get(uuid)` | Get mockup details |
-| `client.mockups.update(uuid, name=)` | Rename a mockup |
-| `client.mockups.delete(uuid)` | Delete a mockup |
+| `client.psd_mockups.list(limit=, offset=, name=, created_after=, created_before=, sort=, order=)` | List mockup templates (filter by `name`) |
+| `client.psd_mockups.get(uuid)` | Get mockup details |
+| `client.psd_mockups.update(uuid, name=)` | Rename a mockup |
+| `client.psd_mockups.delete(uuid)` | Delete a mockup |
 
 > Bulk delete (`DELETE /mockups/all`) is dashboard-only (Bearer/JWT auth) and is intentionally not exposed in this api-key SDK.
 
@@ -507,17 +507,17 @@ client = SudoMock(
 |--------|-------------|
 | `client.psd.upload(url=, name=None, is_async=False)` | Upload a PSD by URL (free; sync `Mockup` or `JobAccepted`) |
 
-### 2D Mockups
+### Photo Mockups
 
 | Method | Description |
 |--------|-------------|
-| `client.ai.create(source_url=, source_base64=, name=, print_areas=, is_async=False, idempotency_key=)` | Create a 2D mockup (25 credits; sync `TwoDMockup` by default, or `JobAccepted` when `is_async=True`) |
-| `client.ai.wait_for_2d_mockup(job_id, poll_interval=2.0, timeout=180.0)` | Wait for an `is_async=True` creation and return the full 2D mockup (accepts a job of kind `2d_create` or `photo_mockup_create`) |
-| `client.ai.update_2d_print_areas(mockup_id, print_areas)` | Replace a 2D mockup's print areas (free) |
-| `client.ai.render(mockup_uuid=, print_areas=, export_options=, is_async=False)` | Render artwork onto a 2D mockup (5 credits; sync `AIRender` with `render_uuid` by default, or `JobAccepted` when `is_async=True`) |
-| `client.ai.list(limit=, offset=, customizable_only=)` | List your 2D mockups; set `customizable_only=True` for shopper-ready items |
-| `client.ai.get(mockup_id)` | Get a 2D mockup |
-| `client.ai.delete(mockup_id)` | Delete a 2D mockup |
+| `client.photo_mockups.create(source_url=, source_base64=, name=, print_areas=, is_async=False, idempotency_key=)` | Create a photo mockup (25 credits; sync `PhotoMockup` by default, or `JobAccepted` when `is_async=True`) |
+| `client.photo_mockups.wait_for_2d_mockup(job_id, poll_interval=2.0, timeout=180.0)` | Wait for an `is_async=True` creation and return the full photo mockup (accepts a job of kind `2d_create` or `photo_mockup_create`) |
+| `client.photo_mockups.update_2d_print_areas(mockup_id, print_areas)` | Replace a photo mockup's print areas (free) |
+| `client.photo_mockups.render(mockup_uuid=, print_areas=, export_options=, is_async=False)` | Render artwork onto a photo mockup (5 credits; sync `PhotoMockupRender` with `render_uuid` by default, or `JobAccepted` when `is_async=True`) |
+| `client.photo_mockups.list(limit=, offset=, customizable_only=)` | List your photo mockups; set `customizable_only=True` for shopper-ready items |
+| `client.photo_mockups.get(mockup_id)` | Get a photo mockup |
+| `client.photo_mockups.delete(mockup_id)` | Delete a photo mockup |
 
 ### Images
 

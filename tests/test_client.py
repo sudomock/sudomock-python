@@ -121,11 +121,11 @@ class TestClientInit:
 
 class TestMockupsList:
     def test_list_mockups(self, mock_api: respx.MockRouter) -> None:
-        mock_api.get("/api/v1/mockups").mock(
+        mock_api.get("/api/v1/psd-mockups").mock(
             return_value=httpx.Response(200, json=MOCK_MOCKUP_LIST_RESPONSE)
         )
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
-            result = client.mockups.list()
+            result = client.psd_mockups.list()
 
         assert isinstance(result, MockupList)
         assert result.total == 1
@@ -133,22 +133,22 @@ class TestMockupsList:
         assert result.mockups[0].uuid == MOCK_MOCKUP["uuid"]
 
     def test_list_with_params(self, mock_api: respx.MockRouter) -> None:
-        route = mock_api.get("/api/v1/mockups").mock(
+        route = mock_api.get("/api/v1/psd-mockups").mock(
             return_value=httpx.Response(200, json=MOCK_MOCKUP_LIST_RESPONSE)
         )
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
-            client.mockups.list(limit=10, offset=5)
+            client.psd_mockups.list(limit=10, offset=5)
 
         request = route.calls.last.request
         assert request.url.params["limit"] == "10"
         assert request.url.params["offset"] == "5"
 
     def test_list_sends_api_key_header(self, mock_api: respx.MockRouter) -> None:
-        route = mock_api.get("/api/v1/mockups").mock(
+        route = mock_api.get("/api/v1/psd-mockups").mock(
             return_value=httpx.Response(200, json=MOCK_MOCKUP_LIST_RESPONSE)
         )
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
-            client.mockups.list()
+            client.psd_mockups.list()
 
         request = route.calls.last.request
         assert request.headers["x-api-key"] == TEST_API_KEY
@@ -157,11 +157,11 @@ class TestMockupsList:
 class TestMockupsGet:
     def test_get_mockup(self, mock_api: respx.MockRouter) -> None:
         uuid = MOCK_MOCKUP["uuid"]
-        mock_api.get(f"/api/v1/mockups/{uuid}").mock(
+        mock_api.get(f"/api/v1/psd-mockups/{uuid}").mock(
             return_value=httpx.Response(200, json=MOCK_MOCKUP_GET_RESPONSE)
         )
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
-            result = client.mockups.get(uuid)
+            result = client.psd_mockups.get(uuid)
 
         assert isinstance(result, Mockup)
         assert result.uuid == uuid
@@ -170,21 +170,21 @@ class TestMockupsGet:
         assert result.text_layers[0].font_postscript_name == "Montserrat-Bold"
 
     def test_get_not_found(self, mock_api: respx.MockRouter) -> None:
-        mock_api.get("/api/v1/mockups/nonexistent").mock(
+        mock_api.get("/api/v1/psd-mockups/nonexistent").mock(
             return_value=httpx.Response(404, json=ERROR_404)
         )
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
             with pytest.raises(NotFoundError):
-                client.mockups.get("nonexistent")
+                client.psd_mockups.get("nonexistent")
 
 
 class TestMockupsDelete:
     def test_delete_mockup(self, mock_api: respx.MockRouter) -> None:
         uuid = "some-uuid"
-        mock_api.delete(f"/api/v1/mockups/{uuid}").mock(return_value=httpx.Response(204))
+        mock_api.delete(f"/api/v1/psd-mockups/{uuid}").mock(return_value=httpx.Response(204))
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
             # Should not raise
-            client.mockups.delete(uuid)
+            client.psd_mockups.delete(uuid)
 
 
 # ---------------------------------------------------------------------------
@@ -327,17 +327,17 @@ class TestRenders:
 
 
 # ---------------------------------------------------------------------------
-# AI resource
+# Photo mockups resource
 # ---------------------------------------------------------------------------
 
 
 class TestAI:
     def test_ai_render(self, mock_api: respx.MockRouter) -> None:
-        route = mock_api.post("/api/v1/sudoai/2d-mockups/2d-mockup-001/render").mock(
+        route = mock_api.post("/api/v1/photo-mockups/2d-mockup-001/render").mock(
             return_value=httpx.Response(200, json=MOCK_AI_RENDER_RESPONSE)
         )
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
-            result = client.ai.render(
+            result = client.photo_mockups.render(
                 mockup_uuid="2d-mockup-001",
                 print_areas=[
                     {
@@ -350,7 +350,7 @@ class TestAI:
         assert isinstance(result, AIRender)
         assert "ai-renders" in result.url
         assert result.render_uuid == "render-2d-001"
-        # 2D-render print_files have no smart_object_uuid.
+        # Photo mockup render print_files have no smart_object_uuid.
         assert result.print_files[0].smart_object_uuid is None
         assert result.print_files[0].export_format == "webp"
 
@@ -363,11 +363,11 @@ class TestAI:
         assert "product_type" not in body
 
     def test_ai_render_with_options(self, mock_api: respx.MockRouter) -> None:
-        route = mock_api.post("/api/v1/sudoai/2d-mockups/2d-mockup-001/render").mock(
+        route = mock_api.post("/api/v1/photo-mockups/2d-mockup-001/render").mock(
             return_value=httpx.Response(200, json=MOCK_AI_RENDER_RESPONSE)
         )
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
-            client.ai.render(
+            client.photo_mockups.render(
                 mockup_uuid="2d-mockup-001",
                 print_areas=[{"uuid": "pa-1", "color": "#FF0000"}],
                 export_options={"image_format": "png"},
@@ -378,11 +378,11 @@ class TestAI:
         assert body["export_options"]["image_format"] == "png"
 
     def test_ai_render_product_surface_uses_surface_uuid(self, mock_api: respx.MockRouter) -> None:
-        route = mock_api.post("/api/v1/sudoai/2d-mockups/2d-mockup-001/render").mock(
+        route = mock_api.post("/api/v1/photo-mockups/2d-mockup-001/render").mock(
             return_value=httpx.Response(200, json=MOCK_AI_RENDER_RESPONSE)
         )
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
-            client.ai.render(
+            client.photo_mockups.render(
                 mockup_uuid="2d-mockup-001",
                 print_areas=[{"surface_uuid": "surface-1", "color": "#FF0000"}],
             )
@@ -391,11 +391,11 @@ class TestAI:
         assert surface == {"surface_uuid": "surface-1", "color": "#FF0000"}
 
     def test_ai_render_with_remove_background(self, mock_api: respx.MockRouter) -> None:
-        route = mock_api.post("/api/v1/sudoai/2d-mockups/2d-mockup-001/render").mock(
+        route = mock_api.post("/api/v1/photo-mockups/2d-mockup-001/render").mock(
             return_value=httpx.Response(200, json=MOCK_AI_RENDER_RESPONSE)
         )
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
-            client.ai.render(
+            client.photo_mockups.render(
                 mockup_uuid="2d-mockup-001",
                 print_areas=[
                     {
@@ -410,11 +410,11 @@ class TestAI:
         assert body["print_areas"][0]["remove_background"] is True
 
     def test_ai_render_async(self, mock_api: respx.MockRouter) -> None:
-        route = mock_api.post("/api/v1/sudoai/2d-mockups/2d-mockup-001/render").mock(
+        route = mock_api.post("/api/v1/photo-mockups/2d-mockup-001/render").mock(
             return_value=httpx.Response(202, json=MOCK_AI_RENDER_JOB_ACCEPTED_RESPONSE)
         )
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
-            result = client.ai.render(
+            result = client.photo_mockups.render(
                 mockup_uuid="2d-mockup-001",
                 print_areas=[{"uuid": "pa-1", "artwork_url": "https://example.com/design.png"}],
                 is_async=True,
@@ -423,7 +423,7 @@ class TestAI:
         # Async submit: 202 returns a JobAccepted (job envelope), NOT an AIRender.
         assert isinstance(result, JobAccepted)
         assert result.job_id == "2d-render-job-001"
-        assert result.kind == "2d_render"
+        assert result.kind == "photo_mockup_render"
         assert result.status == "queued"
         assert result.status_url == "/api/v1/jobs/2d-render-job-001"
 
@@ -434,11 +434,11 @@ class TestAI:
         assert "mockup_uuid" not in body
 
     def test_ai_create(self, mock_api: respx.MockRouter) -> None:
-        route = mock_api.post("/api/v1/sudoai/2d-mockups").mock(
+        route = mock_api.post("/api/v1/photo-mockups").mock(
             return_value=httpx.Response(201, json=MOCK_2D_MOCKUP_GET_RESPONSE)
         )
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
-            result = client.ai.create(
+            result = client.photo_mockups.create(
                 source_url="https://example.com/product.jpg",
                 name="Product Front",
                 idempotency_key="create-2d-001",
@@ -460,18 +460,18 @@ class TestAI:
         assert route.calls.last.request.headers["x-api-key"] == TEST_API_KEY
 
     def test_ai_create_async(self, mock_api: respx.MockRouter) -> None:
-        route = mock_api.post("/api/v1/sudoai/2d-mockups").mock(
+        route = mock_api.post("/api/v1/photo-mockups").mock(
             return_value=httpx.Response(202, json=MOCK_2D_MOCKUP_JOB_ACCEPTED_RESPONSE)
         )
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
-            result = client.ai.create(
+            result = client.photo_mockups.create(
                 source_url="https://example.com/product.jpg",
                 is_async=True,
             )
 
         assert isinstance(result, JobAccepted)
         assert result.job_id == "2d-create-job-001"
-        assert result.kind == "2d_create"
+        assert result.kind == "photo_mockup_create"
         assert result.status == "queued"
         assert result.status_url == "/api/v1/jobs/2d-create-job-001"
         assert json.loads(route.calls.last.request.content) == {
@@ -482,7 +482,7 @@ class TestAI:
     def test_ai_create_base64_generates_stable_idempotency_key(
         self, mock_api: respx.MockRouter
     ) -> None:
-        route = mock_api.post("/api/v1/sudoai/2d-mockups")
+        route = mock_api.post("/api/v1/photo-mockups")
         route.side_effect = [
             httpx.Response(500, json=ERROR_500),
             httpx.Response(202, json=MOCK_2D_MOCKUP_JOB_ACCEPTED_RESPONSE),
@@ -493,7 +493,7 @@ class TestAI:
             base_url=TEST_BASE_URL,
             max_retries=2,
         ) as client:
-            client.ai.create(source_base64="aW1hZ2U=")
+            client.photo_mockups.create(source_base64="aW1hZ2U=")
 
         assert json.loads(route.calls.last.request.content) == {"source_base64": "aW1hZ2U="}
         keys = [call.request.headers["idempotency-key"] for call in route.calls]
@@ -502,24 +502,24 @@ class TestAI:
         assert UUID(keys[0]).version == 4
 
     def test_ai_create_insufficient_credits(self, mock_api: respx.MockRouter) -> None:
-        route = mock_api.post("/api/v1/sudoai/2d-mockups").mock(
+        route = mock_api.post("/api/v1/photo-mockups").mock(
             return_value=httpx.Response(402, json=ERROR_402)
         )
 
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
             with pytest.raises(InsufficientCreditsError):
-                client.ai.create(source_url="https://example.com/product.jpg")
+                client.photo_mockups.create(source_url="https://example.com/product.jpg")
 
         assert len(route.calls) == 1
 
     def test_ai_create_requires_exactly_one_source(self, mock_api: respx.MockRouter) -> None:
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
             with pytest.raises(ValueError, match="exactly one"):
-                client.ai.create()
+                client.photo_mockups.create()
             with pytest.raises(ValueError, match="exactly one"):
-                client.ai.create(source_url="")
+                client.photo_mockups.create(source_url="")
             with pytest.raises(ValueError, match="exactly one"):
-                client.ai.create(
+                client.photo_mockups.create(
                     source_url="https://example.com/product.jpg",
                     source_base64="aW1hZ2U=",
                 )
@@ -532,12 +532,12 @@ class TestAI:
             httpx.Response(200, json=MOCK_2D_MOCKUP_JOB_QUEUED_RESPONSE),
             httpx.Response(200, json=MOCK_2D_MOCKUP_JOB_SUCCEEDED_RESPONSE),
         ]
-        detail_route = mock_api.get("/api/v1/sudoai/2d-mockups/2d-mockup-001").mock(
+        detail_route = mock_api.get("/api/v1/photo-mockups/2d-mockup-001").mock(
             return_value=httpx.Response(200, json=MOCK_2D_MOCKUP_GET_RESPONSE)
         )
 
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
-            result = client.ai.wait_for_2d_mockup(
+            result = client.photo_mockups.wait_for_2d_mockup(
                 "2d-create-job-001",
                 poll_interval=0.0,
             )
@@ -563,22 +563,22 @@ class TestAI:
 
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
             with pytest.raises(SudoMockError, match="expected a photo-mockup create job"):
-                client.ai.wait_for_2d_mockup("video-job-001", poll_interval=0.0)
+                client.photo_mockups.wait_for_2d_mockup("video-job-001", poll_interval=0.0)
 
-    def test_ai_wait_for_2d_mockup_accepts_family_kind(self, mock_api: respx.MockRouter) -> None:
-        """A job stamped with the family kind is the same work as ``2d_create``."""
+    def test_ai_wait_for_2d_mockup_accepts_earlier_kind(self, mock_api: respx.MockRouter) -> None:
+        """A job stamped with the earlier ``2d_create`` kind is the same work."""
         job_route = mock_api.get("/api/v1/jobs/2d-create-job-001").mock(
             return_value=httpx.Response(
                 200,
-                json={**MOCK_2D_MOCKUP_JOB_SUCCEEDED_RESPONSE, "kind": "photo_mockup_create"},
+                json={**MOCK_2D_MOCKUP_JOB_SUCCEEDED_RESPONSE, "kind": "2d_create"},
             )
         )
-        detail_route = mock_api.get("/api/v1/sudoai/2d-mockups/2d-mockup-001").mock(
+        detail_route = mock_api.get("/api/v1/photo-mockups/2d-mockup-001").mock(
             return_value=httpx.Response(200, json=MOCK_2D_MOCKUP_GET_RESPONSE)
         )
 
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
-            result = client.ai.wait_for_2d_mockup("2d-create-job-001", poll_interval=0.0)
+            result = client.photo_mockups.wait_for_2d_mockup("2d-create-job-001", poll_interval=0.0)
 
         assert isinstance(result, TwoDMockup)
         assert result.mockup_id == "2d-mockup-001"
@@ -595,7 +595,7 @@ class TestAI:
 
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
             with pytest.raises(SudoMockError, match="without a mockup UUID"):
-                client.ai.wait_for_2d_mockup("2d-create-job-001", poll_interval=0.0)
+                client.photo_mockups.wait_for_2d_mockup("2d-create-job-001", poll_interval=0.0)
 
     def test_ai_wait_for_2d_mockup_failure(self, mock_api: respx.MockRouter) -> None:
         mock_api.get("/api/v1/jobs/2d-create-job-001").mock(
@@ -604,7 +604,7 @@ class TestAI:
 
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
             with pytest.raises(JobFailedError) as exc_info:
-                client.ai.wait_for_2d_mockup("2d-create-job-001", poll_interval=0.0)
+                client.photo_mockups.wait_for_2d_mockup("2d-create-job-001", poll_interval=0.0)
 
         assert exc_info.value.job_id == "2d-create-job-001"
         assert exc_info.value.error_code == "NOT_MOCKUPABLE"
@@ -617,7 +617,7 @@ class TestAI:
 
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
             with pytest.raises(JobTimeoutError) as exc_info:
-                client.ai.wait_for_2d_mockup(
+                client.photo_mockups.wait_for_2d_mockup(
                     "2d-create-job-001",
                     poll_interval=0.0,
                     timeout=0.0,
@@ -626,13 +626,13 @@ class TestAI:
         assert exc_info.value.job_id == "2d-create-job-001"
 
     def test_ai_update_2d_print_areas(self, mock_api: respx.MockRouter) -> None:
-        route = mock_api.put("/api/v1/sudoai/2d-mockups/2d-mockup-001/print-areas").mock(
+        route = mock_api.put("/api/v1/photo-mockups/2d-mockup-001/print-areas").mock(
             return_value=httpx.Response(200, json=MOCK_2D_PRINT_AREAS_UPDATE_RESPONSE)
         )
         print_areas = [{"points": [[100, 100], [500, 100], [500, 500], [100, 500]]}]
 
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
-            result = client.ai.update_2d_print_areas("2d-mockup-001", print_areas)
+            result = client.photo_mockups.update_2d_print_areas("2d-mockup-001", print_areas)
 
         assert json.loads(route.calls.last.request.content) == {"print_areas": print_areas}
         assert isinstance(result, TwoDPrintAreasUpdate)
@@ -643,7 +643,7 @@ class TestAI:
     def test_ai_update_2d_print_areas_forwards_empty_product_surface_state(
         self, mock_api: respx.MockRouter
     ) -> None:
-        route = mock_api.put("/api/v1/sudoai/2d-mockups/2d-mockup-001/print-areas").mock(
+        route = mock_api.put("/api/v1/photo-mockups/2d-mockup-001/print-areas").mock(
             return_value=httpx.Response(
                 200,
                 json={
@@ -654,30 +654,30 @@ class TestAI:
         )
 
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
-            result = client.ai.update_2d_print_areas("2d-mockup-001", [])
+            result = client.photo_mockups.update_2d_print_areas("2d-mockup-001", [])
 
         assert json.loads(route.calls.last.request.content) == {"print_areas": []}
         assert result.print_areas == []
 
     def test_ai_list_get_delete(self, mock_api: respx.MockRouter) -> None:
-        mock_api.get("/api/v1/sudoai/2d-mockups").mock(
+        mock_api.get("/api/v1/photo-mockups").mock(
             return_value=httpx.Response(200, json=MOCK_2D_MOCKUP_LIST_RESPONSE)
         )
-        mock_api.get("/api/v1/sudoai/2d-mockups/2d-mockup-001").mock(
+        mock_api.get("/api/v1/photo-mockups/2d-mockup-001").mock(
             return_value=httpx.Response(200, json=MOCK_2D_MOCKUP_GET_RESPONSE)
         )
-        mock_api.delete("/api/v1/sudoai/2d-mockups/2d-mockup-001").mock(
+        mock_api.delete("/api/v1/photo-mockups/2d-mockup-001").mock(
             return_value=httpx.Response(200, json=MOCK_2D_MOCKUP_DELETE_RESPONSE)
         )
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
-            listing = client.ai.list(limit=20, customizable_only=True)
+            listing = client.photo_mockups.list(limit=20, customizable_only=True)
             assert listing.total == 1
             assert listing.mockups[0].mockup_id == "2d-mockup-001"
             assert listing.mockups[0].customizable is True
             assert listing.mockups[0].print_areas[0].print_area_id == "pa-1"
             assert listing.mockups[0].surfaces[0].surface_uuid == "surface-1"
 
-            one = client.ai.get("2d-mockup-001")
+            one = client.photo_mockups.get("2d-mockup-001")
             assert one.mockup_id == "2d-mockup-001"
             assert one.name == "Flat Tee Front"
             assert one.customizable is True
@@ -685,7 +685,7 @@ class TestAI:
             # model drops it rather than passing it on.
             assert one.surfaces[0].model_dump() == {"surface_uuid": "surface-1"}
 
-            client.ai.delete("2d-mockup-001")  # should not raise
+            client.photo_mockups.delete("2d-mockup-001")  # should not raise
 
         assert mock_api.calls[0].request.url.params["customizable_only"] == "true"
 
@@ -910,25 +910,25 @@ class TestAccount:
 
 class TestErrorHandling:
     def test_401_raises_auth_error(self, mock_api: respx.MockRouter) -> None:
-        mock_api.get("/api/v1/mockups").mock(return_value=httpx.Response(401, json=ERROR_401))
+        mock_api.get("/api/v1/psd-mockups").mock(return_value=httpx.Response(401, json=ERROR_401))
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
             with pytest.raises(AuthenticationError) as exc_info:
-                client.mockups.list()
+                client.psd_mockups.list()
             assert exc_info.value.status_code == 401
 
     def test_402_raises_credit_error(self, mock_api: respx.MockRouter) -> None:
-        mock_api.get("/api/v1/mockups").mock(return_value=httpx.Response(402, json=ERROR_402))
+        mock_api.get("/api/v1/psd-mockups").mock(return_value=httpx.Response(402, json=ERROR_402))
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
             with pytest.raises(InsufficientCreditsError):
-                client.mockups.list()
+                client.psd_mockups.list()
 
     def test_404_raises_not_found(self, mock_api: respx.MockRouter) -> None:
-        mock_api.get("/api/v1/mockups/missing").mock(
+        mock_api.get("/api/v1/psd-mockups/missing").mock(
             return_value=httpx.Response(404, json=ERROR_404)
         )
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
             with pytest.raises(NotFoundError):
-                client.mockups.get("missing")
+                client.psd_mockups.get("missing")
 
     def test_422_raises_validation_error(self, mock_api: respx.MockRouter) -> None:
         mock_api.post("/api/v1/renders").mock(return_value=httpx.Response(422, json=ERROR_422))
@@ -940,17 +940,17 @@ class TestErrorHandling:
                 )
 
     def test_429_raises_rate_limit_error(self, mock_api: respx.MockRouter) -> None:
-        mock_api.get("/api/v1/mockups").mock(return_value=httpx.Response(429, json=ERROR_429))
+        mock_api.get("/api/v1/psd-mockups").mock(return_value=httpx.Response(429, json=ERROR_429))
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
             with pytest.raises(RateLimitError) as exc_info:
-                client.mockups.list()
+                client.psd_mockups.list()
             assert exc_info.value.retry_after == 30
 
     def test_500_raises_server_error(self, mock_api: respx.MockRouter) -> None:
-        mock_api.get("/api/v1/mockups").mock(return_value=httpx.Response(500, json=ERROR_500))
+        mock_api.get("/api/v1/psd-mockups").mock(return_value=httpx.Response(500, json=ERROR_500))
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
             with pytest.raises(ServerError) as exc_info:
-                client.mockups.list()
+                client.psd_mockups.list()
             assert exc_info.value.status_code == 500
 
     def test_all_errors_inherit_base(self) -> None:
@@ -968,10 +968,10 @@ class TestErrorHandling:
             assert issubclass(exc_cls, SudoMockError)
 
     def test_error_contains_body(self, mock_api: respx.MockRouter) -> None:
-        mock_api.get("/api/v1/mockups").mock(return_value=httpx.Response(500, json=ERROR_500))
+        mock_api.get("/api/v1/psd-mockups").mock(return_value=httpx.Response(500, json=ERROR_500))
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
             with pytest.raises(ServerError) as exc_info:
-                client.mockups.list()
+                client.psd_mockups.list()
             assert exc_info.value.body is not None
             assert (
                 exc_info.value.body["detail"]
@@ -987,43 +987,43 @@ class TestErrorHandling:
 class TestRetry:
     def test_retries_on_500(self, mock_api: respx.MockRouter) -> None:
         """Server errors should be retried (up to max_retries)."""
-        route = mock_api.get("/api/v1/mockups")
+        route = mock_api.get("/api/v1/psd-mockups")
         route.side_effect = [
             httpx.Response(500, json=ERROR_500),
             httpx.Response(500, json=ERROR_500),
             httpx.Response(200, json=MOCK_MOCKUP_LIST_RESPONSE),
         ]
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, max_retries=3) as client:
-            result = client.mockups.list()
+            result = client.psd_mockups.list()
 
         assert result.total == 1
         assert len(route.calls) == 3
 
     def test_retries_on_429(self, mock_api: respx.MockRouter) -> None:
         """Rate limit errors should be retried."""
-        route = mock_api.get("/api/v1/mockups")
+        route = mock_api.get("/api/v1/psd-mockups")
         route.side_effect = [
             httpx.Response(429, json=ERROR_429),
             httpx.Response(200, json=MOCK_MOCKUP_LIST_RESPONSE),
         ]
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, max_retries=2) as client:
-            result = client.mockups.list()
+            result = client.psd_mockups.list()
 
         assert result.total == 1
 
     def test_no_retry_on_4xx(self, mock_api: respx.MockRouter) -> None:
         """Client errors (except 429) should NOT be retried."""
-        route = mock_api.get("/api/v1/mockups")
+        route = mock_api.get("/api/v1/psd-mockups")
         route.mock(return_value=httpx.Response(401, json=ERROR_401))
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, max_retries=3) as client:
             with pytest.raises(AuthenticationError):
-                client.mockups.list()
+                client.psd_mockups.list()
 
         assert len(route.calls) == 1
 
     def test_retries_exhausted(self, mock_api: respx.MockRouter) -> None:
         """After all retries exhausted, the last error should be raised."""
-        route = mock_api.get("/api/v1/mockups")
+        route = mock_api.get("/api/v1/psd-mockups")
         route.side_effect = [
             httpx.Response(500, json=ERROR_500),
             httpx.Response(500, json=ERROR_500),
@@ -1031,7 +1031,7 @@ class TestRetry:
         ]
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL, max_retries=3) as client:
             with pytest.raises(ServerError):
-                client.mockups.list()
+                client.psd_mockups.list()
 
 
 # ---------------------------------------------------------------------------
@@ -1041,11 +1041,11 @@ class TestRetry:
 
 class TestClientIdentity:
     def test_client_identity_headers(self, mock_api: respx.MockRouter) -> None:
-        route = mock_api.get("/api/v1/mockups").mock(
+        route = mock_api.get("/api/v1/psd-mockups").mock(
             return_value=httpx.Response(200, json=MOCK_MOCKUP_LIST_RESPONSE)
         )
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
-            client.mockups.list()
+            client.psd_mockups.list()
 
         headers = route.calls.last.request.headers
         expected = f"python-sdk/{sudomock.__version__}"
@@ -1055,11 +1055,11 @@ class TestClientIdentity:
 
     def test_client_identity_survives_per_request_headers(self, mock_api: respx.MockRouter) -> None:
         """A per-request header (e.g. Idempotency-Key) must not drop the identity."""
-        route = mock_api.post("/api/v1/sudoai/2d-mockups").mock(
+        route = mock_api.post("/api/v1/photo-mockups").mock(
             return_value=httpx.Response(201, json=MOCK_2D_MOCKUP_GET_RESPONSE)
         )
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
-            client.ai.create(
+            client.photo_mockups.create(
                 source_url="https://example.com/product.jpg",
                 idempotency_key="idem-123",
             )
