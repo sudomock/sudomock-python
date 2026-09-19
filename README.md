@@ -543,7 +543,7 @@ client = SudoMock(
 | Method | Description |
 |--------|-------------|
 | `client.webhook_endpoints.list()` | List registered endpoints |
-| `client.webhook_endpoints.create(url=, events=, description=None, event_naming=None)` | Register an endpoint (empty `events` = all; `event_naming` `"current"` / `"legacy"`, API default `"current"`) |
+| `client.webhook_endpoints.create(url=, events=, description=None, event_naming=None)` | Register an endpoint (empty `events` = all; `event_naming` `"current"` / `"legacy"`; left out, the API follows the spelling of `events`) |
 | `client.webhook_endpoints.get(uuid)` | Get an endpoint |
 | `client.webhook_endpoints.update(uuid, url=, events=, description=, enabled=, event_naming=)` | Update an endpoint (`event_naming` re-pins it to `"current"` or `"legacy"`) |
 | `client.webhook_endpoints.delete(uuid)` | Delete an endpoint |
