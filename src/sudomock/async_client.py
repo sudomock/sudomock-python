@@ -484,9 +484,11 @@ class _AsyncWebhookEndpointsResource:
             event_naming: Which spelling of the photo-mockup events this endpoint
                 receives: ``"current"`` (``photo_mockup.*``,
                 ``photo_mockup_render.*``) or ``"legacy"`` (``2d_mockup.*``,
-                ``2d_render.*``). Left out, the API pins a new endpoint to
-                ``"current"``; pass ``"legacy"`` for a handler that still reads
-                the older names.
+                ``2d_render.*``). Left out, the API reads the spelling of
+                ``events``: a list written in the earlier names pins the
+                endpoint to ``"legacy"``, a list written in the current names
+                pins it to ``"current"``, and an empty or mixed list pins it to
+                ``"legacy"``. Pass the value outright to decide it yourself.
         """
         # API field is `event_types` (empty list = subscribe to all events).
         # NOTE: the create endpoint has no `enabled` field (it is update-only).
@@ -1110,11 +1112,25 @@ class AsyncSudoMock:
     def ai(self, value: object) -> None:
         """Assignment still works so existing test doubles keep running.
 
-        The double replaces both accessors, so nothing a caller meant to stub
-        can slip through to the real API on the other name.
+        What is written here is what this name reads back, and only this name:
+        :attr:`photo_mockups` is left where it is. A caller that saves this
+        accessor, swaps in a double and writes the saved value back therefore
+        puts both accessors exactly where they started.
         """
         self._earlier_photo_mockups = value  # type: ignore[assignment]
-        self.photo_mockups = value  # type: ignore[assignment]
+
+    @ai.deleter
+    def ai(self) -> None:
+        """``del client.ai`` drops the override and restores the default.
+
+        The accessor goes back to the one the client was built with, still
+        pinned to the endpoint this name has always called.
+        ``mock.patch.object`` deletes the attribute when its block ends, so
+        this is the way back from a patched double.
+        """
+        self._earlier_photo_mockups = _AsyncPhotoMockupsResource(
+            self._transport, base=EARLIER_PHOTO_MOCKUPS_PATH
+        )
 
     @property
     def mockups(self) -> _AsyncPsdMockupsResource:
@@ -1134,11 +1150,25 @@ class AsyncSudoMock:
     def mockups(self, value: object) -> None:
         """Assignment still works so existing test doubles keep running.
 
-        The double replaces both accessors, so nothing a caller meant to stub
-        can slip through to the real API on the other name.
+        What is written here is what this name reads back, and only this name:
+        :attr:`psd_mockups` is left where it is. A caller that saves this
+        accessor, swaps in a double and writes the saved value back therefore
+        puts both accessors exactly where they started.
         """
         self._earlier_psd_mockups = value  # type: ignore[assignment]
-        self.psd_mockups = value  # type: ignore[assignment]
+
+    @mockups.deleter
+    def mockups(self) -> None:
+        """``del client.mockups`` drops the override and restores the default.
+
+        The accessor goes back to the one the client was built with, still
+        pinned to the endpoint this name has always called.
+        ``mock.patch.object`` deletes the attribute when its block ends, so
+        this is the way back from a patched double.
+        """
+        self._earlier_psd_mockups = _AsyncPsdMockupsResource(
+            self._transport, base=EARLIER_PSD_MOCKUPS_PATH
+        )
 
     async def close(self) -> None:
         """Close the underlying HTTP connection pool."""
