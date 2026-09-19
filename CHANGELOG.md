@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-09-19
+
+### Fixed
+- **`client.ai` and `client.mockups` call the endpoints they have always
+  called.** In 0.11.0 both accessors were aliases of `client.photo_mockups` /
+  `client.psd_mockups` and so began calling `/api/v1/photo-mockups` and
+  `/api/v1/psd-mockups`. Code that upgraded the SDK without being rewritten
+  therefore opened its jobs on the current path and received the current job
+  kinds (`photo_mockup_create` / `photo_mockup_render`) where it had always
+  received `2d_create` / `2d_render` — a branch on `kind` stopped matching
+  without raising anything. `client.ai` is pinned back to
+  `/api/v1/sudoai/2d-mockups` and `client.mockups` to `/api/v1/mockups`, the
+  paths their callers were already using and that the API keeps serving, so
+  upgrading to this release changes nothing for code written against the
+  earlier names. `client.photo_mockups` and `client.psd_mockups` are unchanged
+  and keep calling the current paths; move an accessor over when you are ready
+  to read the current job kinds. The 0.11.0 note that an SDK had to stay pinned
+  below 0.11.0 to keep the earlier paths no longer applies.
+- Assigning to `client.ai` or `client.mockups` replaces both the earlier and
+  the current accessor, so a test double injected under either name is the
+  object that gets called on both.
+
+
 ## [0.11.0] - 2026-09-19
 
 ### Added

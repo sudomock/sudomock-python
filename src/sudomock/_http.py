@@ -44,6 +44,16 @@ DEFAULT_TIMEOUT = 30.0
 DEFAULT_RENDER_TIMEOUT = 120.0
 DEFAULT_MAX_RETRIES = 3
 
+# Endpoints the current accessors (``photo_mockups`` / ``psd_mockups``) call.
+PHOTO_MOCKUPS_PATH = "/api/v1/photo-mockups"
+PSD_MOCKUPS_PATH = "/api/v1/psd-mockups"
+
+# Endpoints the earlier accessors (``ai`` / ``mockups``) have always called and
+# keep calling. Code written against those names was never rewritten, so the
+# request it produces must not change either. Both remain served by the API.
+EARLIER_PHOTO_MOCKUPS_PATH = "/api/v1/sudoai/2d-mockups"
+EARLIER_PSD_MOCKUPS_PATH = "/api/v1/mockups"
+
 
 # ---------------------------------------------------------------------------
 # Error mapping
