@@ -5,7 +5,7 @@ Quick start::
     from sudomock import SudoMock
 
     client = SudoMock(api_key="sm_xxx")
-    mockups = client.mockups.list()
+    mockups = client.psd_mockups.list()
     render = client.renders.create(
         mockup_uuid=mockups.mockups[0].uuid,
         smart_objects=[{
@@ -20,7 +20,7 @@ For async usage::
     from sudomock import AsyncSudoMock
 
     async with AsyncSudoMock(api_key="sm_xxx") as client:
-        mockups = await client.mockups.list()
+        mockups = await client.psd_mockups.list()
 """
 
 from __future__ import annotations
@@ -54,6 +54,10 @@ from .models import (
     JobList,
     Mockup,
     MockupList,
+    PhotoMockup,
+    PhotoMockupList,
+    PhotoMockupPrintAreasUpdate,
+    PhotoMockupRender,
     Plan,
     PlanList,
     PrintFile,
@@ -104,6 +108,10 @@ __all__ = [
     "JobList",
     "Mockup",
     "MockupList",
+    "PhotoMockup",
+    "PhotoMockupList",
+    "PhotoMockupPrintAreasUpdate",
+    "PhotoMockupRender",
     "Plan",
     "PlanList",
     "PrintFile",

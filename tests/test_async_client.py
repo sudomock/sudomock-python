@@ -100,22 +100,22 @@ class TestAsyncClientInit:
 
 class TestAsyncMockupsList:
     async def test_list_mockups(self, mock_api: respx.MockRouter) -> None:
-        mock_api.get("/api/v1/mockups").mock(
+        mock_api.get("/api/v1/psd-mockups").mock(
             return_value=httpx.Response(200, json=MOCK_MOCKUP_LIST_RESPONSE)
         )
         async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
-            result = await client.mockups.list()
+            result = await client.psd_mockups.list()
 
         assert isinstance(result, MockupList)
         assert result.total == 1
         assert result.mockups[0].uuid == MOCK_MOCKUP["uuid"]
 
     async def test_list_with_params(self, mock_api: respx.MockRouter) -> None:
-        route = mock_api.get("/api/v1/mockups").mock(
+        route = mock_api.get("/api/v1/psd-mockups").mock(
             return_value=httpx.Response(200, json=MOCK_MOCKUP_LIST_RESPONSE)
         )
         async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
-            await client.mockups.list(limit=10, offset=5)
+            await client.psd_mockups.list(limit=10, offset=5)
 
         request = route.calls.last.request
         assert request.url.params["limit"] == "10"
@@ -125,11 +125,11 @@ class TestAsyncMockupsList:
 class TestAsyncMockupsGet:
     async def test_get_mockup(self, mock_api: respx.MockRouter) -> None:
         uuid = MOCK_MOCKUP["uuid"]
-        mock_api.get(f"/api/v1/mockups/{uuid}").mock(
+        mock_api.get(f"/api/v1/psd-mockups/{uuid}").mock(
             return_value=httpx.Response(200, json=MOCK_MOCKUP_GET_RESPONSE)
         )
         async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
-            result = await client.mockups.get(uuid)
+            result = await client.psd_mockups.get(uuid)
 
         assert isinstance(result, Mockup)
         assert result.name == "Black T-Shirt Front"
@@ -139,9 +139,9 @@ class TestAsyncMockupsGet:
 class TestAsyncMockupsDelete:
     async def test_delete_mockup(self, mock_api: respx.MockRouter) -> None:
         uuid = "some-uuid"
-        mock_api.delete(f"/api/v1/mockups/{uuid}").mock(return_value=httpx.Response(204))
+        mock_api.delete(f"/api/v1/psd-mockups/{uuid}").mock(return_value=httpx.Response(204))
         async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
-            await client.mockups.delete(uuid)
+            await client.psd_mockups.delete(uuid)
 
 
 # ---------------------------------------------------------------------------
@@ -228,17 +228,17 @@ class TestAsyncRenders:
 
 
 # ---------------------------------------------------------------------------
-# AI resource
+# Photo mockups resource
 # ---------------------------------------------------------------------------
 
 
 class TestAsyncAI:
     async def test_ai_list_customizable_only(self, mock_api: respx.MockRouter) -> None:
-        route = mock_api.get("/api/v1/sudoai/2d-mockups").mock(
+        route = mock_api.get("/api/v1/photo-mockups").mock(
             return_value=httpx.Response(200, json=MOCK_2D_MOCKUP_LIST_RESPONSE)
         )
         async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
-            listing = await client.ai.list(
+            listing = await client.photo_mockups.list(
                 limit=20,
                 customizable_only=True,
             )
@@ -250,11 +250,11 @@ class TestAsyncAI:
         assert route.calls.last.request.url.params["customizable_only"] == "true"
 
     async def test_ai_render(self, mock_api: respx.MockRouter) -> None:
-        route = mock_api.post("/api/v1/sudoai/2d-mockups/2d-mockup-001/render").mock(
+        route = mock_api.post("/api/v1/photo-mockups/2d-mockup-001/render").mock(
             return_value=httpx.Response(200, json=MOCK_AI_RENDER_RESPONSE)
         )
         async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
-            result = await client.ai.render(
+            result = await client.photo_mockups.render(
                 mockup_uuid="2d-mockup-001",
                 print_areas=[{"uuid": "pa-1", "artwork_url": "https://x.com/d.png"}],
             )
@@ -269,11 +269,11 @@ class TestAsyncAI:
         assert body["print_areas"][0]["uuid"] == "pa-1"
 
     async def test_ai_render_async(self, mock_api: respx.MockRouter) -> None:
-        route = mock_api.post("/api/v1/sudoai/2d-mockups/2d-mockup-001/render").mock(
+        route = mock_api.post("/api/v1/photo-mockups/2d-mockup-001/render").mock(
             return_value=httpx.Response(202, json=MOCK_AI_RENDER_JOB_ACCEPTED_RESPONSE)
         )
         async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
-            result = await client.ai.render(
+            result = await client.photo_mockups.render(
                 mockup_uuid="2d-mockup-001",
                 print_areas=[{"uuid": "pa-1", "artwork_url": "https://x.com/d.png"}],
                 is_async=True,
@@ -282,7 +282,7 @@ class TestAsyncAI:
         # Async submit: 202 returns a JobAccepted (job envelope), NOT an AIRender.
         assert isinstance(result, JobAccepted)
         assert result.job_id == "2d-render-job-001"
-        assert result.kind == "2d_render"
+        assert result.kind == "photo_mockup_render"
         assert result.status == "queued"
         assert result.status_url == "/api/v1/jobs/2d-render-job-001"
 
@@ -294,11 +294,11 @@ class TestAsyncAI:
     async def test_ai_render_product_surface_uses_surface_uuid(
         self, mock_api: respx.MockRouter
     ) -> None:
-        route = mock_api.post("/api/v1/sudoai/2d-mockups/2d-mockup-001/render").mock(
+        route = mock_api.post("/api/v1/photo-mockups/2d-mockup-001/render").mock(
             return_value=httpx.Response(200, json=MOCK_AI_RENDER_RESPONSE)
         )
         async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
-            await client.ai.render(
+            await client.photo_mockups.render(
                 mockup_uuid="2d-mockup-001",
                 print_areas=[{"surface_uuid": "surface-1", "color": "#FF0000"}],
             )
@@ -307,11 +307,11 @@ class TestAsyncAI:
         assert surface == {"surface_uuid": "surface-1", "color": "#FF0000"}
 
     async def test_ai_create(self, mock_api: respx.MockRouter) -> None:
-        route = mock_api.post("/api/v1/sudoai/2d-mockups").mock(
+        route = mock_api.post("/api/v1/photo-mockups").mock(
             return_value=httpx.Response(201, json=MOCK_2D_MOCKUP_GET_RESPONSE)
         )
         async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
-            result = await client.ai.create(
+            result = await client.photo_mockups.create(
                 source_url="https://example.com/product.jpg",
                 name="Product Front",
                 idempotency_key="create-2d-001",
@@ -333,18 +333,18 @@ class TestAsyncAI:
         assert route.calls.last.request.headers["x-api-key"] == TEST_API_KEY
 
     async def test_ai_create_async(self, mock_api: respx.MockRouter) -> None:
-        route = mock_api.post("/api/v1/sudoai/2d-mockups").mock(
+        route = mock_api.post("/api/v1/photo-mockups").mock(
             return_value=httpx.Response(202, json=MOCK_2D_MOCKUP_JOB_ACCEPTED_RESPONSE)
         )
         async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
-            result = await client.ai.create(
+            result = await client.photo_mockups.create(
                 source_url="https://example.com/product.jpg",
                 is_async=True,
             )
 
         assert isinstance(result, JobAccepted)
         assert result.job_id == "2d-create-job-001"
-        assert result.kind == "2d_create"
+        assert result.kind == "photo_mockup_create"
         assert result.status == "queued"
         assert result.status_url == "/api/v1/jobs/2d-create-job-001"
         assert json.loads(route.calls.last.request.content) == {
@@ -355,7 +355,7 @@ class TestAsyncAI:
     async def test_ai_create_base64_generates_stable_idempotency_key(
         self, mock_api: respx.MockRouter
     ) -> None:
-        route = mock_api.post("/api/v1/sudoai/2d-mockups")
+        route = mock_api.post("/api/v1/photo-mockups")
         route.side_effect = [
             httpx.Response(500, json=ERROR_500),
             httpx.Response(202, json=MOCK_2D_MOCKUP_JOB_ACCEPTED_RESPONSE),
@@ -366,7 +366,7 @@ class TestAsyncAI:
             base_url=TEST_BASE_URL,
             max_retries=2,
         ) as client:
-            await client.ai.create(source_base64="aW1hZ2U=")
+            await client.photo_mockups.create(source_base64="aW1hZ2U=")
 
         assert json.loads(route.calls.last.request.content) == {"source_base64": "aW1hZ2U="}
         keys = [call.request.headers["idempotency-key"] for call in route.calls]
@@ -375,24 +375,24 @@ class TestAsyncAI:
         assert UUID(keys[0]).version == 4
 
     async def test_ai_create_insufficient_credits(self, mock_api: respx.MockRouter) -> None:
-        route = mock_api.post("/api/v1/sudoai/2d-mockups").mock(
+        route = mock_api.post("/api/v1/photo-mockups").mock(
             return_value=httpx.Response(402, json=ERROR_402)
         )
 
         async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
             with pytest.raises(InsufficientCreditsError):
-                await client.ai.create(source_url="https://example.com/product.jpg")
+                await client.photo_mockups.create(source_url="https://example.com/product.jpg")
 
         assert len(route.calls) == 1
 
     async def test_ai_create_requires_exactly_one_source(self, mock_api: respx.MockRouter) -> None:
         async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
             with pytest.raises(ValueError, match="exactly one"):
-                await client.ai.create()
+                await client.photo_mockups.create()
             with pytest.raises(ValueError, match="exactly one"):
-                await client.ai.create(source_url="")
+                await client.photo_mockups.create(source_url="")
             with pytest.raises(ValueError, match="exactly one"):
-                await client.ai.create(
+                await client.photo_mockups.create(
                     source_url="https://example.com/product.jpg",
                     source_base64="aW1hZ2U=",
                 )
@@ -405,12 +405,12 @@ class TestAsyncAI:
             httpx.Response(200, json=MOCK_2D_MOCKUP_JOB_QUEUED_RESPONSE),
             httpx.Response(200, json=MOCK_2D_MOCKUP_JOB_SUCCEEDED_RESPONSE),
         ]
-        detail_route = mock_api.get("/api/v1/sudoai/2d-mockups/2d-mockup-001").mock(
+        detail_route = mock_api.get("/api/v1/photo-mockups/2d-mockup-001").mock(
             return_value=httpx.Response(200, json=MOCK_2D_MOCKUP_GET_RESPONSE)
         )
 
         async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
-            result = await client.ai.wait_for_2d_mockup(
+            result = await client.photo_mockups.wait_for_2d_mockup(
                 "2d-create-job-001",
                 poll_interval=0.0,
             )
@@ -438,24 +438,26 @@ class TestAsyncAI:
 
         async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
             with pytest.raises(SudoMockError, match="expected a photo-mockup create job"):
-                await client.ai.wait_for_2d_mockup("video-job-001", poll_interval=0.0)
+                await client.photo_mockups.wait_for_2d_mockup("video-job-001", poll_interval=0.0)
 
-    async def test_ai_wait_for_2d_mockup_accepts_family_kind(
+    async def test_ai_wait_for_2d_mockup_accepts_earlier_kind(
         self, mock_api: respx.MockRouter
     ) -> None:
-        """A job stamped with the family kind is the same work as ``2d_create``."""
+        """A job stamped with the earlier ``2d_create`` kind is the same work."""
         job_route = mock_api.get("/api/v1/jobs/2d-create-job-001").mock(
             return_value=httpx.Response(
                 200,
-                json={**MOCK_2D_MOCKUP_JOB_SUCCEEDED_RESPONSE, "kind": "photo_mockup_create"},
+                json={**MOCK_2D_MOCKUP_JOB_SUCCEEDED_RESPONSE, "kind": "2d_create"},
             )
         )
-        detail_route = mock_api.get("/api/v1/sudoai/2d-mockups/2d-mockup-001").mock(
+        detail_route = mock_api.get("/api/v1/photo-mockups/2d-mockup-001").mock(
             return_value=httpx.Response(200, json=MOCK_2D_MOCKUP_GET_RESPONSE)
         )
 
         async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
-            result = await client.ai.wait_for_2d_mockup("2d-create-job-001", poll_interval=0.0)
+            result = await client.photo_mockups.wait_for_2d_mockup(
+                "2d-create-job-001", poll_interval=0.0
+            )
 
         assert isinstance(result, TwoDMockup)
         assert result.mockup_id == "2d-mockup-001"
@@ -474,7 +476,9 @@ class TestAsyncAI:
 
         async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
             with pytest.raises(SudoMockError, match="without a mockup UUID"):
-                await client.ai.wait_for_2d_mockup("2d-create-job-001", poll_interval=0.0)
+                await client.photo_mockups.wait_for_2d_mockup(
+                    "2d-create-job-001", poll_interval=0.0
+                )
 
     async def test_ai_wait_for_2d_mockup_failure(self, mock_api: respx.MockRouter) -> None:
         mock_api.get("/api/v1/jobs/2d-create-job-001").mock(
@@ -483,7 +487,9 @@ class TestAsyncAI:
 
         async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
             with pytest.raises(JobFailedError) as exc_info:
-                await client.ai.wait_for_2d_mockup("2d-create-job-001", poll_interval=0.0)
+                await client.photo_mockups.wait_for_2d_mockup(
+                    "2d-create-job-001", poll_interval=0.0
+                )
 
         assert exc_info.value.job_id == "2d-create-job-001"
         assert exc_info.value.error_code == "NOT_MOCKUPABLE"
@@ -496,7 +502,7 @@ class TestAsyncAI:
 
         async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
             with pytest.raises(JobTimeoutError) as exc_info:
-                await client.ai.wait_for_2d_mockup(
+                await client.photo_mockups.wait_for_2d_mockup(
                     "2d-create-job-001",
                     poll_interval=0.0,
                     timeout=0.0,
@@ -505,13 +511,13 @@ class TestAsyncAI:
         assert exc_info.value.job_id == "2d-create-job-001"
 
     async def test_ai_update_2d_print_areas(self, mock_api: respx.MockRouter) -> None:
-        route = mock_api.put("/api/v1/sudoai/2d-mockups/2d-mockup-001/print-areas").mock(
+        route = mock_api.put("/api/v1/photo-mockups/2d-mockup-001/print-areas").mock(
             return_value=httpx.Response(200, json=MOCK_2D_PRINT_AREAS_UPDATE_RESPONSE)
         )
         print_areas = [{"points": [[100, 100], [500, 100], [500, 500], [100, 500]]}]
 
         async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
-            result = await client.ai.update_2d_print_areas("2d-mockup-001", print_areas)
+            result = await client.photo_mockups.update_2d_print_areas("2d-mockup-001", print_areas)
 
         assert json.loads(route.calls.last.request.content) == {"print_areas": print_areas}
         assert isinstance(result, TwoDPrintAreasUpdate)
@@ -522,7 +528,7 @@ class TestAsyncAI:
     async def test_ai_update_2d_print_areas_forwards_empty_product_surface_state(
         self, mock_api: respx.MockRouter
     ) -> None:
-        route = mock_api.put("/api/v1/sudoai/2d-mockups/2d-mockup-001/print-areas").mock(
+        route = mock_api.put("/api/v1/photo-mockups/2d-mockup-001/print-areas").mock(
             return_value=httpx.Response(
                 200,
                 json={
@@ -533,7 +539,7 @@ class TestAsyncAI:
         )
 
         async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
-            result = await client.ai.update_2d_print_areas("2d-mockup-001", [])
+            result = await client.photo_mockups.update_2d_print_areas("2d-mockup-001", [])
 
         assert json.loads(route.calls.last.request.content) == {"print_areas": []}
         assert result.print_areas == []
@@ -732,22 +738,22 @@ class TestAsyncAccount:
 
 class TestAsyncErrorHandling:
     async def test_401_raises_auth_error(self, mock_api: respx.MockRouter) -> None:
-        mock_api.get("/api/v1/mockups").mock(return_value=httpx.Response(401, json=ERROR_401))
+        mock_api.get("/api/v1/psd-mockups").mock(return_value=httpx.Response(401, json=ERROR_401))
         async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
             with pytest.raises(AuthenticationError):
-                await client.mockups.list()
+                await client.psd_mockups.list()
 
     async def test_429_raises_rate_limit_error(self, mock_api: respx.MockRouter) -> None:
-        mock_api.get("/api/v1/mockups").mock(return_value=httpx.Response(429, json=ERROR_429))
+        mock_api.get("/api/v1/psd-mockups").mock(return_value=httpx.Response(429, json=ERROR_429))
         async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
             with pytest.raises(RateLimitError):
-                await client.mockups.list()
+                await client.psd_mockups.list()
 
     async def test_500_raises_server_error(self, mock_api: respx.MockRouter) -> None:
-        mock_api.get("/api/v1/mockups").mock(return_value=httpx.Response(500, json=ERROR_500))
+        mock_api.get("/api/v1/psd-mockups").mock(return_value=httpx.Response(500, json=ERROR_500))
         async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
             with pytest.raises(ServerError):
-                await client.mockups.list()
+                await client.psd_mockups.list()
 
 
 # ---------------------------------------------------------------------------
@@ -757,7 +763,7 @@ class TestAsyncErrorHandling:
 
 class TestAsyncRetry:
     async def test_retries_on_500(self, mock_api: respx.MockRouter) -> None:
-        route = mock_api.get("/api/v1/mockups")
+        route = mock_api.get("/api/v1/psd-mockups")
         route.side_effect = [
             httpx.Response(500, json=ERROR_500),
             httpx.Response(200, json=MOCK_MOCKUP_LIST_RESPONSE),
@@ -765,19 +771,19 @@ class TestAsyncRetry:
         async with AsyncSudoMock(
             api_key=TEST_API_KEY, base_url=TEST_BASE_URL, max_retries=2
         ) as client:
-            result = await client.mockups.list()
+            result = await client.psd_mockups.list()
 
         assert result.total == 1
         assert len(route.calls) == 2
 
     async def test_no_retry_on_4xx(self, mock_api: respx.MockRouter) -> None:
-        route = mock_api.get("/api/v1/mockups")
+        route = mock_api.get("/api/v1/psd-mockups")
         route.mock(return_value=httpx.Response(401, json=ERROR_401))
         async with AsyncSudoMock(
             api_key=TEST_API_KEY, base_url=TEST_BASE_URL, max_retries=3
         ) as client:
             with pytest.raises(AuthenticationError):
-                await client.mockups.list()
+                await client.psd_mockups.list()
 
         assert len(route.calls) == 1
 
@@ -789,11 +795,11 @@ class TestAsyncRetry:
 
 class TestAsyncClientIdentity:
     async def test_client_identity_headers(self, mock_api: respx.MockRouter) -> None:
-        route = mock_api.get("/api/v1/mockups").mock(
+        route = mock_api.get("/api/v1/psd-mockups").mock(
             return_value=httpx.Response(200, json=MOCK_MOCKUP_LIST_RESPONSE)
         )
         async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
-            await client.mockups.list()
+            await client.psd_mockups.list()
 
         headers = route.calls.last.request.headers
         expected = f"python-sdk/{sudomock.__version__}"
