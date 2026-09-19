@@ -27,6 +27,10 @@ from ._http import (
     DEFAULT_MAX_RETRIES,
     DEFAULT_RENDER_TIMEOUT,
     DEFAULT_TIMEOUT,
+    EARLIER_PHOTO_MOCKUPS_PATH,
+    EARLIER_PSD_MOCKUPS_PATH,
+    PHOTO_MOCKUPS_PATH,
+    PSD_MOCKUPS_PATH,
     SyncTransport,
 )
 from ._public_contract import public_2d_render_targets
@@ -69,8 +73,9 @@ _StrList = list[str]
 class _PsdMockupsResource:
     """PSD mockup template operations (list, get, update, delete)."""
 
-    def __init__(self, transport: SyncTransport) -> None:
+    def __init__(self, transport: SyncTransport, base: str = PSD_MOCKUPS_PATH) -> None:
         self._transport = transport
+        self._base = base
 
     def list(
         self,
@@ -100,7 +105,7 @@ class _PsdMockupsResource:
         """
         resp = self._transport.request(
             "GET",
-            "/api/v1/psd-mockups",
+            self._base,
             params={
                 "limit": limit,
                 "offset": offset,
@@ -126,7 +131,7 @@ class _PsdMockupsResource:
         Raises:
             NotFoundError: If the mockup does not exist.
         """
-        resp = self._transport.request("GET", f"/api/v1/psd-mockups/{uuid}")
+        resp = self._transport.request("GET", f"{self._base}/{uuid}")
         payload = resp.json()
         return Mockup.model_validate({**payload["data"], "warnings": payload.get("warnings") or []})
 
@@ -143,7 +148,7 @@ class _PsdMockupsResource:
         Raises:
             NotFoundError: If the mockup does not exist.
         """
-        resp = self._transport.request("PATCH", f"/api/v1/psd-mockups/{uuid}", json={"name": name})
+        resp = self._transport.request("PATCH", f"{self._base}/{uuid}", json={"name": name})
         payload = resp.json()
         return Mockup.model_validate({**payload["data"], "warnings": payload.get("warnings") or []})
 
@@ -156,7 +161,7 @@ class _PsdMockupsResource:
         Raises:
             NotFoundError: If the mockup does not exist.
         """
-        self._transport.request("DELETE", f"/api/v1/psd-mockups/{uuid}")
+        self._transport.request("DELETE", f"{self._base}/{uuid}")
 
 
 class _RendersResource:
@@ -640,8 +645,9 @@ class _WebhookEndpointsResource:
 class _PhotoMockupsResource:
     """Photo mockup operations (create, render, list, get, delete, print areas)."""
 
-    def __init__(self, transport: SyncTransport) -> None:
+    def __init__(self, transport: SyncTransport, base: str = PHOTO_MOCKUPS_PATH) -> None:
         self._transport = transport
+        self._base = base
 
     def create(
         self,
@@ -697,7 +703,7 @@ class _PhotoMockupsResource:
 
         resp = self._transport.request(
             "POST",
-            "/api/v1/photo-mockups",
+            self._base,
             json=body,
             headers={"Idempotency-Key": idempotency_key},
         )
@@ -767,7 +773,7 @@ class _PhotoMockupsResource:
         """
         resp = self._transport.request(
             "PUT",
-            f"/api/v1/photo-mockups/{mockup_id}/print-areas",
+            f"{self._base}/{mockup_id}/print-areas",
             json={"print_areas": print_areas},
         )
         return PhotoMockupPrintAreasUpdate.model_validate(resp.json()["data"])
@@ -838,7 +844,7 @@ class _PhotoMockupsResource:
 
         resp = self._transport.request(
             "POST",
-            f"/api/v1/photo-mockups/{mockup_uuid}/render",
+            f"{self._base}/{mockup_uuid}/render",
             json=body,
             timeout=self._transport._render_timeout,
         )
@@ -869,7 +875,7 @@ class _PhotoMockupsResource:
         """
         resp = self._transport.request(
             "GET",
-            "/api/v1/photo-mockups",
+            self._base,
             params={
                 "limit": limit,
                 "offset": offset,
@@ -890,7 +896,7 @@ class _PhotoMockupsResource:
         Raises:
             NotFoundError: If the photo mockup does not exist.
         """
-        resp = self._transport.request("GET", f"/api/v1/photo-mockups/{mockup_id}")
+        resp = self._transport.request("GET", f"{self._base}/{mockup_id}")
         return PhotoMockup.model_validate(resp.json()["data"])
 
     def delete(self, mockup_id: str) -> None:
@@ -899,7 +905,7 @@ class _PhotoMockupsResource:
         Raises:
             NotFoundError: If the photo mockup does not exist.
         """
-        self._transport.request("DELETE", f"/api/v1/photo-mockups/{mockup_id}")
+        self._transport.request("DELETE", f"{self._base}/{mockup_id}")
 
 
 class _ImagesResource:
@@ -1138,34 +1144,63 @@ class SudoMock:
         self.packages = _PackagesResource(self._transport)
         self.webhook_endpoints = _WebhookEndpointsResource(self._transport)
 
+        # Same resources, pinned to the endpoints the earlier accessors have
+        # always called. Kept as their own objects so ``photo_mockups`` and
+        # ``psd_mockups`` can move on without moving the earlier callers.
+        self._earlier_photo_mockups = _PhotoMockupsResource(
+            self._transport, base=EARLIER_PHOTO_MOCKUPS_PATH
+        )
+        self._earlier_psd_mockups = _PsdMockupsResource(
+            self._transport, base=EARLIER_PSD_MOCKUPS_PATH
+        )
+
     @property
     def ai(self) -> _PhotoMockupsResource:
-        """Earlier name of :attr:`photo_mockups`; emits a ``DeprecationWarning``."""
+        """Earlier name of :attr:`photo_mockups`; emits a ``DeprecationWarning``.
+
+        Calls made through this name keep going to the endpoint they have
+        always gone to, so a job opened here is the job this caller has always
+        opened. Use :attr:`photo_mockups` for the current endpoint.
+        """
         warnings.warn(
             "SudoMock.ai is deprecated; use SudoMock.photo_mockups instead.",
             DeprecationWarning,
             stacklevel=2,
         )
-        return self.photo_mockups
+        return self._earlier_photo_mockups
 
     @ai.setter
     def ai(self, value: object) -> None:
-        """Assignment still works so existing test doubles keep running."""
+        """Assignment still works so existing test doubles keep running.
+
+        The double replaces both accessors, so nothing a caller meant to stub
+        can slip through to the real API on the other name.
+        """
+        self._earlier_photo_mockups = value  # type: ignore[assignment]
         self.photo_mockups = value  # type: ignore[assignment]
 
     @property
     def mockups(self) -> _PsdMockupsResource:
-        """Earlier name of :attr:`psd_mockups`; emits a ``DeprecationWarning``."""
+        """Earlier name of :attr:`psd_mockups`; emits a ``DeprecationWarning``.
+
+        Calls made through this name keep going to the endpoint they have
+        always gone to. Use :attr:`psd_mockups` for the current endpoint.
+        """
         warnings.warn(
             "SudoMock.mockups is deprecated; use SudoMock.psd_mockups instead.",
             DeprecationWarning,
             stacklevel=2,
         )
-        return self.psd_mockups
+        return self._earlier_psd_mockups
 
     @mockups.setter
     def mockups(self, value: object) -> None:
-        """Assignment still works so existing test doubles keep running."""
+        """Assignment still works so existing test doubles keep running.
+
+        The double replaces both accessors, so nothing a caller meant to stub
+        can slip through to the real API on the other name.
+        """
+        self._earlier_psd_mockups = value  # type: ignore[assignment]
         self.psd_mockups = value  # type: ignore[assignment]
 
     def close(self) -> None:
