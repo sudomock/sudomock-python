@@ -25,9 +25,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and keep calling the current paths; move an accessor over when you are ready
   to read the current job kinds. The 0.11.0 note that an SDK had to stay pinned
   below 0.11.0 to keep the earlier paths no longer applies.
-- Assigning to `client.ai` or `client.mockups` replaces both the earlier and
-  the current accessor, so a test double injected under either name is the
-  object that gets called on both.
+- Assigning to `client.ai` or `client.mockups` reaches the earlier accessor, so
+  a test double injected under either name is the object that gets called.
+- **Assigning to `client.ai` or `client.mockups` no longer moves
+  `client.photo_mockups` / `client.psd_mockups`.** The setter wrote both
+  accessors while the getter read only the earlier one, so the ordinary
+  save-and-restore pattern around a test double (`saved = client.ai` ...
+  `client.ai = saved`, or `mock.patch.object`) left the current accessor
+  pointing at the earlier endpoint for the rest of the process — every later
+  `client.photo_mockups` call went to `/api/v1/sudoai/2d-mockups` and came back
+  with the earlier job kinds, with nothing raised. Each earlier name now reads
+  back exactly what was written to it and leaves the current name alone, so a
+  restore puts both accessors where they started.
+- **`del client.ai` and `del client.mockups` work.** The earlier names had no
+  deleter, so `mock.patch.object(client, "ai", double)` raised
+  `AttributeError: property 'ai' of 'SudoMock' object has no deleter` when its
+  block ended. Deleting an earlier name drops the override and restores the
+  accessor the client was built with, still pinned to the endpoint that name
+  has always called.
+
+### Changed
+- `webhook_endpoints.create(...)` docs: an endpoint that does not pass
+  `event_naming` is pinned by the spelling of its `events` — the earlier event
+  names pin it to `"legacy"`, the current names to `"current"`, an empty or
+  mixed list to `"legacy"`. The earlier note that the API always pinned a new
+  endpoint to `"current"` no longer describes what happens. Passing
+  `event_naming` explicitly decides it and is unaffected.
 
 
 ## [0.11.0] - 2026-09-19
