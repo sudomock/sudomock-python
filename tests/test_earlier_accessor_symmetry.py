@@ -218,9 +218,7 @@ class TestEarlierNamesAreDeletable:
         assert earlier.called
         assert not current.called
 
-    async def test_async_patch_object_mockups_round_trip(
-        self, mock_api: respx.MockRouter
-    ) -> None:
+    async def test_async_patch_object_mockups_round_trip(self, mock_api: respx.MockRouter) -> None:
         earlier = mock_api.get(EARLIER_PSD_PATH).mock(
             return_value=httpx.Response(200, json=MOCK_MOCKUP_LIST_RESPONSE)
         )
@@ -254,9 +252,7 @@ class TestEarlierNamesKeepTheirExistingBehaviour:
             assert client.ai is stub
             assert client.ai.list() == "stubbed"
 
-    def test_earlier_names_still_call_earlier_endpoints(
-        self, mock_api: respx.MockRouter
-    ) -> None:
+    def test_earlier_names_still_call_earlier_endpoints(self, mock_api: respx.MockRouter) -> None:
         earlier = mock_api.get(EARLIER_PHOTO_PATH).mock(
             return_value=httpx.Response(200, json=MOCK_2D_MOCKUP_LIST_RESPONSE)
         )
