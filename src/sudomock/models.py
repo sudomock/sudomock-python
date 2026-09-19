@@ -664,8 +664,10 @@ class VideoOptions(_Outcome):
 # ``"current"`` delivers ``photo_mockup.*`` / ``photo_mockup_render.*`` and
 # ``"legacy"`` delivers ``2d_mockup.*`` / ``2d_render.*``; the payload's
 # ``kind`` follows the same pin. Every other event is spelled the same under
-# both. The API pins a new endpoint to ``"current"`` unless told otherwise;
-# an endpoint that predates the current names stays on ``"legacy"`` until it
+# both. An endpoint that does not name a pin gets the spelling its
+# ``event_types`` are written in — the earlier names pin it to ``"legacy"``,
+# the current names to ``"current"``, an empty or mixed list to ``"legacy"``.
+# An endpoint that predates the current names stays on ``"legacy"`` until it
 # is re-pinned.
 WebhookEventNaming = Literal["legacy", "current"]
 
