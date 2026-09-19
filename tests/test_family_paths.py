@@ -2,8 +2,9 @@
 
 ``client.photo_mockups`` talks to ``/api/v1/photo-mockups`` and
 ``client.psd_mockups`` to ``/api/v1/psd-mockups``. ``client.ai`` and
-``client.mockups`` keep working as deprecated aliases of those same objects,
-and the ``PhotoMockup*`` model names are the same classes as the older
+``client.mockups`` keep working as deprecated accessors, pinned to the
+endpoints they have always called (see ``test_legacy_accessor_paths.py``), and
+the ``PhotoMockup*`` model names are the same classes as the older
 ``TwoDMockup*`` / ``AIRender`` names.
 """
 
@@ -113,28 +114,43 @@ class TestFamilyPaths:
 
 
 class TestDeprecatedAliases:
-    def test_sync_ai_is_photo_mockups(self) -> None:
+    """The earlier names still work, still warn, and still call what they called.
+
+    They are their own objects rather than the current accessors, because the
+    endpoint they point at is the one their callers were already using. The
+    wire paths themselves are asserted in ``test_legacy_accessor_paths.py``.
+    """
+
+    def test_sync_ai_serves_photo_mockups(self) -> None:
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
             with pytest.warns(DeprecationWarning, match="photo_mockups"):
-                assert client.ai is client.photo_mockups
+                accessor = client.ai
+            assert isinstance(accessor, type(client.photo_mockups))
+            assert accessor is not client.photo_mockups
 
-    def test_sync_mockups_is_psd_mockups(self) -> None:
+    def test_sync_mockups_serves_psd_mockups(self) -> None:
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
             with pytest.warns(DeprecationWarning, match="psd_mockups"):
-                assert client.mockups is client.psd_mockups
+                accessor = client.mockups
+            assert isinstance(accessor, type(client.psd_mockups))
+            assert accessor is not client.psd_mockups
 
-    async def test_async_ai_is_photo_mockups(self) -> None:
+    async def test_async_ai_serves_photo_mockups(self) -> None:
         async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
             with pytest.warns(DeprecationWarning, match="photo_mockups"):
-                assert client.ai is client.photo_mockups
+                accessor = client.ai
+            assert isinstance(accessor, type(client.photo_mockups))
+            assert accessor is not client.photo_mockups
 
-    async def test_async_mockups_is_psd_mockups(self) -> None:
+    async def test_async_mockups_serves_psd_mockups(self) -> None:
         async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
             with pytest.warns(DeprecationWarning, match="psd_mockups"):
-                assert client.mockups is client.psd_mockups
+                accessor = client.mockups
+            assert isinstance(accessor, type(client.psd_mockups))
+            assert accessor is not client.psd_mockups
 
-    def test_alias_still_reaches_family_path(self, mock_api: respx.MockRouter) -> None:
-        route = mock_api.get("/api/v1/photo-mockups").mock(
+    def test_alias_reaches_the_endpoint_it_always_reached(self, mock_api: respx.MockRouter) -> None:
+        route = mock_api.get("/api/v1/sudoai/2d-mockups").mock(
             return_value=httpx.Response(200, json=MOCK_2D_MOCKUP_LIST_RESPONSE)
         )
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
