@@ -22,6 +22,7 @@ from sudomock.models import (
     JobKind,
     Mockup,
     MockupList,
+    Organization,
     PrintFile,
     Render,
     Size,
@@ -173,9 +174,11 @@ class TestAccountInfo:
                 created_at="2025-01-01T00:00:00Z",
                 total_requests=0,
             ),
+            organization={"id": "o1", "name": "Acme"},
         )
         assert info.account.uuid == "u1"
         assert info.subscription.plan == "free"
+        assert info.organization == Organization(id="o1", name="Acme")
 
 
 class TestSmartObject:
