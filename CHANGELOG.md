@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-09-22
+
+### Added
+- `AccountInfo.organization`, the organization the API key belongs to, as an
+  `Organization` with `id` and `name`. `client.account.get()` returns it when
+  the API sends the block. The field is optional and defaults to `None`, so a
+  response without it parses exactly as before and nothing else on
+  `AccountInfo` changes.
+- `Organization` is exported from the package.
+
+### Changed
+- `Account` docs: `uuid` identifies the account the API key belongs to.
+
+
 ## [0.11.1] - 2026-09-19
 
 ### Fixed
@@ -338,7 +352,8 @@ parses is still present and still required.
 - Typed Pydantic v2 response models, typed exceptions, and tenacity-backed retry
   with exponential backoff.
 
-[Unreleased]: https://github.com/sudomock/sudomock-python/compare/v0.11.0...HEAD
+[Unreleased]: https://github.com/sudomock/sudomock-python/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/sudomock/sudomock-python/compare/v0.11.1...v0.12.0
 [0.11.0]: https://github.com/sudomock/sudomock-python/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/sudomock/sudomock-python/compare/v0.9.1...v0.10.0
 [0.7.0]: https://github.com/sudomock/sudomock-python/compare/v0.6.1...v0.7.0
