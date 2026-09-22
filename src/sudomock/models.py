@@ -47,7 +47,10 @@ class _Outcome(_Base):
 
 
 class Account(_Base):
-    """User account information."""
+    """User account information.
+
+    ``uuid`` identifies the account the API key belongs to.
+    """
 
     uuid: str
     email: str
@@ -120,6 +123,13 @@ class ApiKeyInfo(_Base):
     total_requests: int
 
 
+class Organization(_Base):
+    """The organization the API key belongs to."""
+
+    id: str
+    name: str
+
+
 class AccountInfo(_Base):
     """Aggregate response for GET /api/v1/me."""
 
@@ -127,6 +137,9 @@ class AccountInfo(_Base):
     subscription: Subscription
     usage: Usage
     api_key: ApiKeyInfo
+    # Defaulted, not required, for the same reason as ``Usage.prepaid_balance``:
+    # a response that predates the block must keep parsing.
+    organization: Optional[Organization] = None
 
 
 class StudioSessionUi(TypedDict, total=False):
