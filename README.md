@@ -448,16 +448,18 @@ fraction, so it has no denominator to be a percentage of.
 
 ### Pricing in one paragraph
 
-Pay as you go is the entry tier and needs no subscription: one PSD render costs
-$0.05, so $1 covers 20, and the minimum first payment is $5. Photo mockups and video
-are priced by what they cost to produce, not at the flat render rate. Volume plans
-start at $25/month for 5,000 renders. A new account gets 500 credits once, with no
-card required to spend them, but until a card is verified its renders are
-watermarked and capped at 1,024 px, it can keep 5 PSD templates, and one render
-runs at a time. Funding the $5 minimum lifts every one of those: the watermark and
-the width cap come off, the stored-template limit goes to 150, and renders run 25
-at a time alongside 10 concurrent uploads. There is no separate "free plan": that
-account is on the pay-as-you-go tier, unfunded.
+Plans start at $25/month for 5,000 renders, which is $0.005 per render, and annual
+billing takes the lowest self-serve rate to $2.42 per 1,000 renders on the Pro 50K
+plan. Without any subscription at all it is $0.05 per PSD render with a $5 minimum
+first payment, so $1 covers 20, which is the same rate standalone mockup APIs charge
+on a paid plan and the highest per-render rate SudoMock charges. Photo mockups and
+video are priced by what they cost to produce, not at the flat render rate. A new
+account gets 500 credits once, with no card required to spend them, but until a card
+is verified its renders are watermarked and capped at 1,024 px, it can keep 5 PSD
+templates, and one render runs at a time. Funding the $5 minimum lifts every one of
+those: the watermark and the width cap come off, the stored-template limit goes to
+150, and renders run 25 at a time alongside 10 concurrent uploads. There is no
+separate "free plan": that account is on the pay-as-you-go tier, unfunded.
 
 ## Configuration
 
