@@ -2,7 +2,7 @@
 
 Official Python client for the [SudoMock](https://sudomock.com) Mockup Generator API.
 
-Generate photorealistic product mockups from PSD templates or photo mockups -- all from your Python code.
+Generate photorealistic product mockups from PSD templates or photo mockups, all from your Python code.
 
 [![PyPI](https://img.shields.io/pypi/v/sudomock)](https://pypi.org/project/sudomock/)
 [![Python](https://img.shields.io/pypi/pyversions/sudomock)](https://pypi.org/project/sudomock/)
@@ -448,12 +448,10 @@ fraction, so it has no denominator to be a percentage of.
 
 ### Pricing in one paragraph
 
-Plans start at $25/month for 5,000 renders, which is $0.005 per render, and annual
-billing takes the lowest self-serve rate to $2.42 per 1,000 renders on the Pro 50K
-plan. Without any subscription at all it is $0.05 per PSD render with a $5 minimum
-first payment, so $1 covers 20, which is the same rate standalone mockup APIs charge
-on a paid plan and the highest per-render rate SudoMock charges. Photo mockups and
-video are priced by what they cost to produce, not at the flat render rate. A new
+Subscriptions from $0.002 per render. Without one, $0.05 per render, the same rate
+standalone mockup APIs charge on a paid plan. The first payment into the balance is
+at least $5. Photo mockups and video are priced by
+what they cost to produce, not at the flat render rate. A new
 account gets 500 credits once, with no card required to spend them, but until a card
 is verified its renders are watermarked and capped at 1,024 px, it can keep 5 PSD
 templates, and one render runs at a time. Funding the $5 minimum lifts every one of
