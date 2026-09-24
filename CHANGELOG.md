@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.1] - 2026-09-24
+
+### Changed
+- README: the pricing section reads "Subscriptions from $0.002 per render" and
+  gives pay as you go at $0.05 per render in one sentence.
+
 ## [0.12.0] - 2026-09-22
 
 ### Added
