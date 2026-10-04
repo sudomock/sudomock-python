@@ -61,12 +61,22 @@ class TestStudioModels:
             "mockup_uuid": "mockup",
             "render_uuid": "render",
         }
-        with pytest.raises(PydanticValidationError):
-            StudioResultPayload(
-                mockup_uuid="mockup",
-                render_uuid="render",
-                private_field=3,
-            )
+        # The editor sends its render parameters with a submitted design. The
+        # payload keeps the handles it acts on and drops the rest; it used to
+        # refuse the whole result.
+        submitted = StudioResultPayload.model_validate(
+            {
+                "mockup_uuid": "mockup",
+                "render_uuid": "render",
+                "action_id": "add-to-cart",
+                "render_parameters": {"mockup_uuid": "mockup", "smart_objects": []},
+            }
+        )
+        assert submitted.model_dump(exclude_none=True) == {
+            "mockup_uuid": "mockup",
+            "render_uuid": "render",
+            "action_id": "add-to-cart",
+        }
 
     def test_setup_result_uses_the_same_outcome_payload(self) -> None:
         event = StudioResultEvent(

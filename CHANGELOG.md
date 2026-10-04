@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.2] - 2026-10-04
+
+### Fixed
+- A design submitted from the editor can be confirmed again. The editor sends
+  its render parameters with a submitted design, and `StudioResultEvent` refused
+  any result that carried a field it did not name, so `studio.consume_action`
+  could not be reached for those designs. The event keeps the fields the SDK
+  acts on and ignores the rest. The request `consume_action` sends is unchanged.
+
 ## [0.12.1] - 2026-09-24
 
 ### Changed
