@@ -162,9 +162,12 @@ class StudioSession(_Outcome):
 
 
 class StudioResultPayload(_Outcome):
-    """Outcome-only Studio result callback payload."""
+    """Outcome-only Studio result callback payload.
 
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    Keeps the fields the SDK acts on and ignores the rest: the editor may send
+    more with a result (it sends its render parameters with a submitted design),
+    and a model that named every field refused each of those results.
+    """
 
     mockup_uuid: str
     render_uuid: str
@@ -180,8 +183,6 @@ class StudioResultEvent(_Outcome):
     request_id: str
     message_session_id: str
     payload: StudioResultPayload
-
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
 
 class StudioActionContext(TypedDict, total=False):
