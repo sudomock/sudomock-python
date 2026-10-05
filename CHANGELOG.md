@@ -12,13 +12,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a `MockupLayers` (`mockup_uuid`, `layers`), nested the way Photoshop's Layers
   panel shows them and front-most first. Each `MockupLayer` carries `uuid`,
   `name`, `kind`, `visible` and `children`. A smart object whose contents hold
-  layers you can fill lists those layers as its children. Costs no credits.
+  layers you can fill lists those layers as its children. An artboard has
+  kind `artboard`, and its own layers are listed right before it at the top
+  level. Costs no credits.
 - `renders.create` takes `hidden_layers`, on both clients: up to 50 layer
   UUIDs, as `psd_mockups.layers()` lists them, to leave out of one render.
   Hiding a group hides every layer inside it, a layer clipped to a hidden
   layer is hidden with it, and a layer hidden inside a smart object's contents
   is hidden in every copy of that smart object. It works on its own. A render
   that does not pass it sends the same request as before.
+
+### Fixed
+- `images.remove_background()` documents its `url` as a public PNG URL that
+  stays available for 7 days, which is what the API has returned since
+  2026-08-13. The docstrings on both clients, the `BackgroundRemoval`
+  docstring and the README had called it a signed URL.
 
 ## [0.13.0] - 2026-10-05
 

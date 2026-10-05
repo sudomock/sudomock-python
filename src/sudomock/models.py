@@ -350,13 +350,15 @@ class MockupList(_Base):
 class MockupLayer(_Outcome):
     """One layer of a PSD mockup, with the layers inside it.
 
-    ``kind`` is one of ``group``, ``smart_object``, ``text``, ``pixel``,
-    ``shape``, ``fill`` or ``adjustment``. ``visible`` says whether the layer
-    shows in the template as uploaded. ``children`` holds the layers inside
-    this one, front-most first: a group's own layers, or the layers of a smart
-    object's contents when those contents hold layers you can fill. Copies of
-    one smart object share their contents, which are listed under one copy.
-    Pass ``uuid`` in ``hidden_layers`` to leave the layer out of one render.
+    ``kind`` is one of ``artboard``, ``group``, ``smart_object``, ``text``,
+    ``pixel``, ``shape``, ``fill`` or ``adjustment``. ``visible`` says whether
+    the layer shows in the template as uploaded. ``children`` holds the layers
+    inside this one, front-most first: a group's own layers, or the layers of a
+    smart object's contents when those contents hold layers you can fill.
+    Copies of one smart object share their contents, which are listed under
+    one copy. An artboard's own layers are listed right before the artboard at
+    the top level, not in its ``children``. Pass ``uuid`` in ``hidden_layers``
+    to leave the layer out of one render.
     """
 
     uuid: str
@@ -530,7 +532,7 @@ TwoDMockupList = PhotoMockupList
 class BackgroundRemoval(_Outcome):
     """Transparent-PNG cutout returned by ``POST /remove-background``.
 
-    ``url`` is signed and valid for 7 days.
+    ``url`` is public and stays available for 7 days.
     """
 
     url: str
