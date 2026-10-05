@@ -176,6 +176,7 @@ class _RendersResource:
         mockup_uuid: str,
         smart_objects: Optional[list[dict[str, Any]]] = None,
         text_layers: Optional[list[dict[str, Any]]] = None,
+        hidden_layers: Optional[list[str]] = None,
         export_options: Optional[dict[str, Any]] = None,
         export_label: Optional[str] = None,
         is_async: bool = False,
@@ -195,12 +196,20 @@ class _RendersResource:
                 the whole Smart Object on the mockup canvas instead.
                 ``asset.rotate`` is degrees, clockwise positive, applied before
                 the artwork is sized and fitted.
-                Required unless ``text_layers`` is provided. Setting
-                ``"remove_background": True`` on an asset isolates its subject
+                Required unless ``text_layers`` or ``hidden_layers`` is
+                provided. Setting ``"remove_background": True`` on an asset isolates its subject
                 onto a clean transparent cutout before placement and adds 25
                 credits per unique artwork to the render cost.
             text_layers: Optional text replacements using layer UUIDs from the
-                mockup response. Required unless ``smart_objects`` is provided.
+                mockup response. Required unless ``smart_objects`` or
+                ``hidden_layers`` is provided.
+            hidden_layers: Optional list of up to 50 layer UUIDs to leave out of
+                this render, as ``GET /api/v1/psd-mockups/{uuid}/layers`` lists
+                them. A smart object, text layer or group has the same UUID
+                there as in the mockup response. Hiding a group hides every
+                layer inside it, and a layer clipped to a hidden layer is
+                hidden with it. A layer cannot be hidden and edited in the same
+                render. Works on its own.
             export_options: Optional export settings (``image_format``, ``image_size``,
                 ``quality``).
             export_label: Optional label for the export filename.
@@ -223,6 +232,8 @@ class _RendersResource:
             body["smart_objects"] = smart_objects
         if text_layers is not None:
             body["text_layers"] = text_layers
+        if hidden_layers is not None:
+            body["hidden_layers"] = hidden_layers
         if export_options is not None:
             body["export_options"] = export_options
         if export_label is not None:

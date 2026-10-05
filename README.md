@@ -71,6 +71,21 @@ for render in renders:
         print(warning.code, warning.message)
 ```
 
+## Hide layers for one render
+
+`hidden_layers` leaves up to 50 layers out of a single render; the template
+itself does not change. Take the UUIDs from
+`GET /api/v1/psd-mockups/{uuid}/layers`, which lists every layer of the
+template. Hiding a group hides every layer inside it, and `hidden_layers` works
+on its own.
+
+```python
+render = client.renders.create(
+    mockup_uuid="mockup-uuid",
+    hidden_layers=["group-layer-uuid"],
+)
+```
+
 ## Async Usage
 
 ```python
@@ -490,7 +505,7 @@ client = SudoMock(
 
 | Method | Description |
 |--------|-------------|
-| `client.renders.create(mockup_uuid=, smart_objects=None, text_layers=None, export_options=, export_label=, is_async=False)` | Render artwork, text replacements, or both (sync `Render`, or `JobAccepted` when `is_async=True`) |
+| `client.renders.create(mockup_uuid=, smart_objects=None, text_layers=None, hidden_layers=None, export_options=, export_label=, is_async=False)` | Render artwork, text replacements, or both, optionally leaving layers out (sync `Render`, or `JobAccepted` when `is_async=True`) |
 | `client.renders.create_video(mockup_uuid=, smart_objects=, image_url=, duration_seconds=, audio=False, motion=None, webhook=None, ...)` | AI video render (always async, returns `JobAccepted`). Render mode (`mockup_uuid`+`smart_objects`) or raw-image mode (`image_url`) |
 
 ### Jobs

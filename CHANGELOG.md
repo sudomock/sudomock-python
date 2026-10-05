@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `renders.create` takes `hidden_layers`, on both clients: up to 50 layer
+  UUIDs, as `GET /api/v1/psd-mockups/{uuid}/layers` lists them, to leave out of
+  one render. Hiding a group hides every layer inside it, and a layer clipped
+  to a hidden layer is hidden with it. It works on its own. A render that does
+  not pass it sends the same request as before.
+
 ## [0.13.0] - 2026-10-05
 
 ### Added
