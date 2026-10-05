@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-10-05
+
+### Added
+- `SmartObject.smart_objects` and `SmartObject.text_layers`: the smart objects
+  and text layers inside a smart object, read from upload, mockup detail, list
+  and rename responses. Each entry is a `SmartObject` or `TextLayer` with the
+  same fields as a top-level one, and smart objects can hold further levels.
+  A nested entry's `position` is in its parent smart object's own pixel space;
+  its `size` is its own. Both lists default to empty, so a response without
+  them parses exactly as before and the top-level lists are unchanged.
+- Fill a nested slot by its `uuid` in the existing render request lists. A
+  request that sends artwork to a smart object and also fills a slot inside it
+  is refused with `NESTED_SLOT_CONFLICT`.
+- Upload warning `PSD_NESTED_CONTENTS_UNAVAILABLE`: the contents of a smart
+  object could not be read, so it stays one slot and still renders as designed.
+
 ## [0.12.2] - 2026-10-04
 
 ### Fixed
