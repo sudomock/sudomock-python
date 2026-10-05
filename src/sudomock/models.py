@@ -347,6 +347,38 @@ class MockupList(_Base):
     offset: int
 
 
+class MockupLayer(_Outcome):
+    """One layer of a PSD mockup, with the layers inside it.
+
+    ``kind`` is one of ``group``, ``smart_object``, ``text``, ``pixel``,
+    ``shape``, ``fill`` or ``adjustment``. ``visible`` says whether the layer
+    shows in the template as uploaded. ``children`` holds the layers inside
+    this one, front-most first: a group's own layers, or the layers of a smart
+    object's contents when those contents hold layers you can fill. Copies of
+    one smart object share their contents, which are listed under one copy.
+    Pass ``uuid`` in ``hidden_layers`` to leave the layer out of one render.
+    """
+
+    uuid: str
+    name: str
+    kind: str
+    visible: bool
+    children: list[MockupLayer] = Field(default_factory=list)
+
+
+MockupLayer.model_rebuild()
+
+
+class MockupLayers(_Outcome):
+    """Every layer of a PSD mockup, as Photoshop's Layers panel lists them.
+
+    ``layers`` holds the top-level layers, front-most first.
+    """
+
+    mockup_uuid: str
+    layers: list[MockupLayer] = Field(default_factory=list)
+
+
 # ---------------------------------------------------------------------------
 # Render
 # ---------------------------------------------------------------------------
