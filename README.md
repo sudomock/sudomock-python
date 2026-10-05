@@ -74,15 +74,18 @@ for render in renders:
 ## Hide layers for one render
 
 `hidden_layers` leaves up to 50 layers out of a single render; the template
-itself does not change. Take the UUIDs from
-`GET /api/v1/psd-mockups/{uuid}/layers`, which lists every layer of the
-template. Hiding a group hides every layer inside it, and `hidden_layers` works
-on its own.
+itself does not change. `client.psd_mockups.layers()` lists every layer of the
+template with its UUID, including the layers inside a smart object's contents.
+Hiding a group hides every layer inside it, a layer hidden inside a smart
+object is hidden in every copy of it, and `hidden_layers` works on its own.
 
 ```python
+tree = client.psd_mockups.layers("mockup-uuid")
+badge = next(layer for layer in tree.layers if layer.name == "Sleeve badge")
+
 render = client.renders.create(
     mockup_uuid="mockup-uuid",
-    hidden_layers=["group-layer-uuid"],
+    hidden_layers=[badge.uuid],
 )
 ```
 
@@ -496,6 +499,7 @@ client = SudoMock(
 |--------|-------------|
 | `client.psd_mockups.list(limit=, offset=, name=, created_after=, created_before=, sort=, order=)` | List mockup templates (filter by `name`) |
 | `client.psd_mockups.get(uuid)` | Get mockup details |
+| `client.psd_mockups.layers(uuid)` | List every layer, nested as in Photoshop's Layers panel, with the UUIDs `hidden_layers` takes |
 | `client.psd_mockups.update(uuid, name=)` | Rename a mockup |
 | `client.psd_mockups.delete(uuid)` | Delete a mockup |
 

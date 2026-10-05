@@ -44,6 +44,7 @@ from .models import (
     JobKind,
     JobList,
     Mockup,
+    MockupLayers,
     MockupList,
     PhotoMockup,
     PhotoMockupList,
@@ -71,7 +72,7 @@ _StrList = list[str]
 
 
 class _PsdMockupsResource:
-    """PSD mockup template operations (list, get, update, delete)."""
+    """PSD mockup template operations (list, get, layers, update, delete)."""
 
     def __init__(self, transport: SyncTransport, base: str = PSD_MOCKUPS_PATH) -> None:
         self._transport = transport
@@ -134,6 +135,27 @@ class _PsdMockupsResource:
         resp = self._transport.request("GET", f"{self._base}/{uuid}")
         payload = resp.json()
         return Mockup.model_validate({**payload["data"], "warnings": payload.get("warnings") or []})
+
+    def layers(self, uuid: str) -> MockupLayers:
+        """List every layer of a mockup.
+
+        Layers are nested the way Photoshop's Layers panel shows them and
+        listed front-most first. A smart object whose contents hold layers you
+        can fill lists those layers as its children. Pass a layer's ``uuid`` in
+        ``hidden_layers`` on :meth:`renders.create` to leave it out of one
+        render. The call costs no credits.
+
+        Args:
+            uuid: Mockup identifier.
+
+        Returns:
+            :class:`MockupLayers` with ``mockup_uuid`` and ``layers``.
+
+        Raises:
+            NotFoundError: If the mockup does not exist.
+        """
+        resp = self._transport.request("GET", f"{self._base}/{uuid}/layers")
+        return MockupLayers.model_validate(resp.json()["data"])
 
     def update(self, uuid: str, *, name: str) -> Mockup:
         """Rename a mockup.
@@ -204,12 +226,15 @@ class _RendersResource:
                 mockup response. Required unless ``smart_objects`` or
                 ``hidden_layers`` is provided.
             hidden_layers: Optional list of up to 50 layer UUIDs to leave out of
-                this render, as ``GET /api/v1/psd-mockups/{uuid}/layers`` lists
-                them. A smart object, text layer or group has the same UUID
-                there as in the mockup response. Hiding a group hides every
-                layer inside it, and a layer clipped to a hidden layer is
-                hidden with it. A layer cannot be hidden and edited in the same
-                render. Works on its own.
+                this render, as :meth:`psd_mockups.layers` lists them, including
+                the layers inside a smart object's contents. A smart object,
+                text layer or group has the same UUID there as in the mockup
+                response. Hiding a group hides every layer inside it, and a
+                layer clipped to a hidden layer is hidden with it. A layer
+                hidden inside a smart object's contents is hidden in every copy
+                of that smart object. A layer cannot be hidden and edited in
+                the same render, and a smart object that receives an image
+                cannot have layers inside it hidden. Works on its own.
             export_options: Optional export settings (``image_format``, ``image_size``,
                 ``quality``).
             export_label: Optional label for the export filename.
