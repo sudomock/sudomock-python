@@ -246,12 +246,21 @@ class Position(_Base):
 
 
 class SmartObject(_Base):
-    """A single smart-object layer within a mockup."""
+    """A single smart-object layer within a mockup.
+
+    A smart object can hold its own smart objects and text layers. Each one is a
+    slot you fill by its ``uuid`` in the same render request as top-level ones.
+    A nested entry's ``position`` is in its parent smart object's own pixel
+    space, and its ``size`` is its own size. Both lists are empty when the
+    smart object holds nothing fillable.
+    """
 
     uuid: str
     name: Optional[str] = None
     size: Optional[Size] = None
     position: Optional[Position] = None
+    smart_objects: list[SmartObject] = Field(default_factory=list)
+    text_layers: list[TextLayer] = Field(default_factory=list)
     # Forward-compatible: extra fields silently accepted
 
 
@@ -284,6 +293,9 @@ class TextLayer(_Base):
     has_color_overlay: bool = False
     has_clipped_artwork: Optional[bool] = None
     suggested_edit_together: Optional[list[str]] = None
+
+
+SmartObject.model_rebuild()
 
 
 class ApiWarning(_Outcome):
