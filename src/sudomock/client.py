@@ -141,7 +141,9 @@ class _PsdMockupsResource:
 
         Layers are nested the way Photoshop's Layers panel shows them and
         listed front-most first. A smart object whose contents hold layers you
-        can fill lists those layers as its children. Pass a layer's ``uuid`` in
+        can fill lists those layers as its children. An artboard has kind
+        ``artboard``, and its own layers are listed right before it at the top
+        level rather than as its children. Pass a layer's ``uuid`` in
         ``hidden_layers`` on :meth:`renders.create` to leave it out of one
         render. The call costs no credits.
 
@@ -961,8 +963,8 @@ class _ImagesResource:
     ) -> BackgroundRemoval:
         """Remove the background from an image (costs 25 credits).
 
-        Returns a signed transparent-PNG cutout URL valid for 7 days, ready to
-        hand back to a render as artwork. To clean artwork inline during a
+        Returns a public transparent-PNG cutout URL that stays available for 7
+        days, ready to hand back to a render as artwork. To clean artwork inline during a
         render instead, set
         ``"remove_background": True`` on the render asset
         (:meth:`SudoMock.renders.create`) or print area
@@ -979,8 +981,8 @@ class _ImagesResource:
                 ``image/png``.
 
         Returns:
-            :class:`BackgroundRemoval` with the signed cutout ``url`` (valid for
-            7 days), its ``width`` / ``height`` in pixels, and
+            :class:`BackgroundRemoval` with the public cutout ``url``
+            (available for 7 days), its ``width`` / ``height`` in pixels, and
             ``credits_charged``.
 
         Raises:

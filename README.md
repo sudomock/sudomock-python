@@ -240,7 +240,7 @@ credits are refunded automatically if processing fails.
 ```python
 cutout = client.images.remove_background(url="https://example.com/product-photo.jpg")
 
-print(cutout.url)              # signed cutout URL, valid for 7 days
+print(cutout.url)              # public cutout URL, available for 7 days
 print(cutout.width, cutout.height)
 print(cutout.credits_charged)  # 25
 
@@ -542,7 +542,7 @@ client = SudoMock(
 
 | Method | Description |
 |--------|-------------|
-| `client.images.remove_background(url=, base64=, content_type=)` | Remove an image's background (25 credits; returns a `BackgroundRemoval` with a signed transparent-PNG cutout URL valid for 7 days) |
+| `client.images.remove_background(url=, base64=, content_type=)` | Remove an image's background (25 credits; returns a `BackgroundRemoval` with a public transparent-PNG cutout URL that stays available for 7 days) |
 
 ### Account
 
