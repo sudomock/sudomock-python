@@ -237,8 +237,15 @@ class _RendersResource:
                 of that smart object. A layer cannot be hidden and edited in
                 the same render, and a smart object that receives an image
                 cannot have layers inside it hidden. Works on its own.
-            export_options: Optional export settings (``image_format``, ``image_size``,
-                ``quality``).
+            export_options: Optional export settings (``image_format``,
+                ``image_size``, ``quality``, ``dpi``). ``image_size`` is the
+                output width in pixels (100-10000, default 2048), or
+                ``"original"`` for the PSD's own size and resolution: its own
+                width, and the resolution it was saved with unless ``dpi`` is
+                set. ``dpi`` (72-2400) is the resolution the file carries; it
+                does not change the pixel size, ``image_size`` does. With
+                ``image_size`` ``"original"`` and no ``dpi``, the file carries
+                the PSD's own resolution.
             export_label: Optional label for the export filename.
             is_async: If ``True``, submit the render to the server-side async
                 queue and return immediately with a :class:`JobAccepted`
