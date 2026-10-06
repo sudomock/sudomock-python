@@ -579,7 +579,7 @@ client = SudoMock(
 ```python
 export_options = {
     "image_format": "webp",  # "webp", "png", "jpg"
-    "image_size": 1920,       # max dimension in pixels
+    "image_size": 1920,       # output width in pixels (100-10000), or "original"
     "quality": 95,            # 1-100 (for webp/jpg)
 }
 ```

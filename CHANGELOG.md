@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-10-06
+
+### Added
+- `renders.create` documents `export_options.image_size` = `"original"`, on
+  both clients: a PSD template renders at its own size and resolution, its
+  own width with the height following its proportions, and the resolution
+  it was saved with unless `dpi` is set. An integer width (100-10000, default
+  2048) works as before. A template uploaded before this option existed
+  answers `REUPLOAD_REQUIRED` until it is uploaded again. Photo mockup
+  renders keep taking a width in pixels only.
+- `renders.create` documents `export_options.dpi`, on both clients: the
+  resolution the file carries (72-2400).
+
 ## [0.14.0] - 2026-10-06
 
 ### Added
