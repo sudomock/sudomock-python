@@ -463,15 +463,17 @@ class Quad(_Outcome):
 class FullSurface(_Outcome):
     """One printable product in the photo, available as a render target.
 
-    Nothing here says what kind of surface it is. Being listed under
-    ``surfaces`` is the whole statement; the fixed ``coverage="full"`` that used
-    to ride along named nothing a caller could act on while reading exactly
-    like a dial they could turn.
+    ``label``: What was detected on this surface, such as "wall" or "pillow".
+
+    There is no ``coverage`` here: the fixed ``coverage="full"`` that used to
+    ride along named nothing a caller could act on while reading exactly like a
+    dial they could turn.
     """
 
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
     surface_uuid: str
+    label: Optional[str] = None
 
 
 class PhotoMockupPrintAreasUpdate(_Outcome):
