@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-10-23
+
+### Added
+- `tile` on a smart object asset (PSD renders and the render mode of video
+  renders) and in a photo mockup placement repeats the artwork as a pattern
+  across the whole target. On a PSD asset `size` is one tile, `fit` places the
+  artwork inside each tile and `position` sets where the grid starts; on a
+  photo mockup the sizing answer (`coverage`, `fit`, or `width` and `height`)
+  is one tile. A tile without a size is refused with 422.
+- `FullSurface.label`: what was detected on a photo mockup surface, such as
+  `wall` or `pillow`.
+
 ## [0.15.0] - 2026-10-06
 
 ### Added
