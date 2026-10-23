@@ -238,7 +238,11 @@ class _AsyncRendersResource:
                 and fitted. ``asset.tile``: Repeat the artwork as a pattern
                 across the whole smart object. size is one tile, fit places the
                 artwork inside each tile, and position sets where the grid
-                starts. Requires size. Setting
+                starts. Requires size. ``asset.tile_spacing``: Gap between
+                tiles as a percentage of the tile size, 0 to 100. The
+                horizontal gap is that percent of the tile width, the vertical
+                gap that percent of the tile height. Used only when tile is
+                true. Setting
                 ``"remove_background": True`` on an asset isolates its subject
                 onto a clean transparent cutout before placement and adds 25
                 credits per unique artwork to the render cost.
@@ -821,7 +825,11 @@ class _AsyncPhotoMockupsResource:
                 Repeat the artwork as a pattern across the whole target. The
                 sizing answer (coverage, fit, or width and height) is one tile,
                 and position with offset_x and offset_y sets where the grid
-                starts. Requires a sizing answer. Setting
+                starts. Requires a sizing answer. ``tile_spacing``: Gap between
+                tiles as a percentage of the tile size, 0 to 100. The
+                horizontal gap is that percent of the tile width, the vertical
+                gap that percent of the tile height. Used only when tile is
+                true. Setting
                 ``"remove_background": True``
                 isolates the artwork's subject onto a clean transparent cutout
                 before placement and adds 25 credits per unique artwork to the
