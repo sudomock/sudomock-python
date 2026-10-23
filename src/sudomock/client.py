@@ -211,11 +211,16 @@ class _RendersResource:
             mockup_uuid: UUID of the mockup to render.
             smart_objects: Optional list of smart object configurations, each
                 containing ``uuid`` and ``asset`` (with ``url``, optional ``fit``,
-                ``rotate``, ``position``, ``size``, ``tile``, ``remove_background``).
+                ``rotate``, ``position``, ``size``, ``tile``, ``tile_spacing``,
+                ``remove_background``).
                 ``asset.tile``: Repeat the artwork as a pattern across the whole
                 smart object. size is one tile, fit places the artwork inside
                 each tile, and position sets where the grid starts. Requires
                 size.
+                ``asset.tile_spacing``: Gap between tiles as a percentage of the
+                tile size, 0 to 100. The horizontal gap is that percent of the
+                tile width, the vertical gap that percent of the tile height.
+                Used only when tile is true.
                 ``asset.size`` and ``asset.position`` are measured in the Smart
                 Object's own embedded pixel frame, from that frame's top-left
                 corner, not in mockup-canvas coordinates: sent with ``size``,
@@ -867,7 +872,11 @@ class _PhotoMockupsResource:
                 Repeat the artwork as a pattern across the whole target. The
                 sizing answer (coverage, fit, or width and height) is one tile,
                 and position with offset_x and offset_y sets where the grid
-                starts. Requires a sizing answer. At least one of ``base64``,
+                starts. Requires a sizing answer. ``tile_spacing``: Gap between
+                tiles as a percentage of the tile size, 0 to 100. The
+                horizontal gap is that percent of the tile width, the vertical
+                gap that percent of the tile height. Used only when tile is
+                true. At least one of ``base64``,
                 ``artwork_url`` or ``color`` must be supplied per area. Setting
                 ``"remove_background": True`` isolates the artwork's subject
                 onto a clean transparent cutout before placement and adds 25
