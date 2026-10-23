@@ -49,6 +49,7 @@ _PLACEMENT_FIELDS = {
     "rotation",
     "offset_x",
     "offset_y",
+    "tile",
 }
 # Sizing is the one option that belongs to a kind of target, and the API answers
 # the crossed pair with a 422. A surface is spanned by a percentage; a print area
