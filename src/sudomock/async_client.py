@@ -235,7 +235,10 @@ class _AsyncRendersResource:
                 centred; sent without ``size``, ``position`` moves the whole
                 Smart Object on the mockup canvas instead. ``asset.rotate`` is
                 degrees, clockwise positive, applied before the artwork is sized
-                and fitted. Setting
+                and fitted. ``asset.tile``: Repeat the artwork as a pattern
+                across the whole smart object. size is one tile, fit places the
+                artwork inside each tile, and position sets where the grid
+                starts. Requires size. Setting
                 ``"remove_background": True`` on an asset isolates its subject
                 onto a clean transparent cutout before placement and adds 25
                 credits per unique artwork to the render cost.
@@ -814,7 +817,11 @@ class _AsyncPhotoMockupsResource:
                 ``height`` describe the box before rotation; ``width`` and
                 ``height`` travel as a pair and are sent instead of
                 ``coverage`` or ``fit``; sending a box together with either of
-                them is rejected rather than silently resolved. Setting
+                them is rejected rather than silently resolved. ``tile``:
+                Repeat the artwork as a pattern across the whole target. The
+                sizing answer (coverage, fit, or width and height) is one tile,
+                and position with offset_x and offset_y sets where the grid
+                starts. Requires a sizing answer. Setting
                 ``"remove_background": True``
                 isolates the artwork's subject onto a clean transparent cutout
                 before placement and adds 25 credits per unique artwork to the

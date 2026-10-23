@@ -211,7 +211,11 @@ class _RendersResource:
             mockup_uuid: UUID of the mockup to render.
             smart_objects: Optional list of smart object configurations, each
                 containing ``uuid`` and ``asset`` (with ``url``, optional ``fit``,
-                ``rotate``, ``position``, ``size``, ``remove_background``).
+                ``rotate``, ``position``, ``size``, ``tile``, ``remove_background``).
+                ``asset.tile``: Repeat the artwork as a pattern across the whole
+                smart object. size is one tile, fit places the artwork inside
+                each tile, and position sets where the grid starts. Requires
+                size.
                 ``asset.size`` and ``asset.position`` are measured in the Smart
                 Object's own embedded pixel frame, from that frame's top-left
                 corner, not in mockup-canvas coordinates: sent with ``size``,
@@ -859,7 +863,11 @@ class _PhotoMockupsResource:
                 ``height`` describe the box before rotation; ``width`` and
                 ``height`` travel as a pair and are sent instead of
                 ``coverage`` or ``fit``; sending a box together with either of
-                them is rejected rather than silently resolved. At least one of ``base64``,
+                them is rejected rather than silently resolved. ``tile``:
+                Repeat the artwork as a pattern across the whole target. The
+                sizing answer (coverage, fit, or width and height) is one tile,
+                and position with offset_x and offset_y sets where the grid
+                starts. Requires a sizing answer. At least one of ``base64``,
                 ``artwork_url`` or ``color`` must be supplied per area. Setting
                 ``"remove_background": True`` isolates the artwork's subject
                 onto a clean transparent cutout before placement and adds 25

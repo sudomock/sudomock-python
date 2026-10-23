@@ -113,8 +113,8 @@ class TestTwoDModels:
         # surfaced: the field named nothing a caller could act on.
         surface = FullSurface.model_validate({"surface_uuid": "surface-1", "coverage": "full"})
 
-        assert surface.model_dump() == {"surface_uuid": "surface-1"}
-        assert set(FullSurface.model_json_schema()["properties"]) == {"surface_uuid"}
+        assert surface.model_dump() == {"surface_uuid": "surface-1", "label": None}
+        assert set(FullSurface.model_json_schema()["properties"]) == {"surface_uuid", "label"}
 
     def test_customizable_is_required(self) -> None:
         with pytest.raises(PydanticValidationError):
