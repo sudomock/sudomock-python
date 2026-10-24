@@ -117,7 +117,8 @@ then render your artwork. Creation costs 25 credits and rendering costs 5 credit
 Unsuccessful creations are refunded automatically.
 
 `customizable` is always a boolean, and `surfaces` and `print_areas` are typed
-lists. `surfaces` holds one entry per printable product in the photo, each
+lists. `surfaces` holds one entry per printable product in the photo, and one
+for the main wall of a room photo, each
 exposing a `surface_uuid`; `print_areas` holds the bounded zones somebody drew
 on those products. A product can have both, and they are separate render
 targets -- a saved print area does not close off the surface it sits on.

@@ -461,7 +461,8 @@ class Quad(_Outcome):
 
 
 class FullSurface(_Outcome):
-    """One printable product in the photo, available as a render target.
+    """One printable product in the photo, or the main wall of a room photo,
+    available as a render target.
 
     ``label``: What was detected on this surface, such as "wall" or "pillow".
 
