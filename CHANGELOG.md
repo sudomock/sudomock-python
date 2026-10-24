@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-10-24
+
 ### Added
 - `tile_spacing` on a smart object asset (PSD renders and the render mode of
   video renders) and in a photo mockup placement sets the gap between tiles
