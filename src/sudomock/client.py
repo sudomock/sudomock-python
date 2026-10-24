@@ -820,7 +820,9 @@ class _PhotoMockupsResource:
         Args:
             mockup_id: photo mockup identifier.
             print_areas: Up to eight print areas, each with four ``[x, y]``
-                points and an optional ``name``. An empty list is accepted only
+                points, an optional ``name`` and an optional ``print_area_id``:
+                the id of an existing print area of this mockup to keep its id.
+                Leave it out for a new area. An empty list is accepted only
                 when the API has verified every product surface as printable;
                 each of those is then a render target in its own right.
 

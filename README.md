@@ -532,7 +532,7 @@ client = SudoMock(
 |--------|-------------|
 | `client.photo_mockups.create(source_url=, source_base64=, name=, print_areas=, is_async=False, idempotency_key=)` | Create a photo mockup (25 credits; sync `PhotoMockup` by default, or `JobAccepted` when `is_async=True`) |
 | `client.photo_mockups.wait_for_2d_mockup(job_id, poll_interval=2.0, timeout=180.0)` | Wait for an `is_async=True` creation and return the full photo mockup (accepts a job of kind `2d_create` or `photo_mockup_create`) |
-| `client.photo_mockups.update_2d_print_areas(mockup_id, print_areas)` | Replace a photo mockup's print areas (free) |
+| `client.photo_mockups.update_2d_print_areas(mockup_id, print_areas)` | Replace a photo mockup's print areas (free); an area with `print_area_id` keeps that id |
 | `client.photo_mockups.render(mockup_uuid=, print_areas=, export_options=, is_async=False)` | Render artwork onto a photo mockup (5 credits; sync `PhotoMockupRender` with `render_uuid` by default, or `JobAccepted` when `is_async=True`) |
 | `client.photo_mockups.list(limit=, offset=, customizable_only=)` | List your photo mockups; set `customizable_only=True` for shopper-ready items |
 | `client.photo_mockups.get(mockup_id)` | Get a photo mockup |
