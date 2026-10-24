@@ -132,6 +132,18 @@ Anchoring -- `position`, `offset_x`, `offset_y`, `rotation` -- belongs to both.
 Whatever you leave unset is left off the wire so the renderer applies its own
 default.
 
+`"tile": True` in a placement repeats the artwork as a pattern across the
+whole target. The sizing answer (`coverage`, `fit`, or `width` and `height`) is
+one tile, and `position` with `offset_x` and `offset_y` sets where the grid
+starts. `tile_spacing` sets the gap between tiles, as on a PSD asset below.
+Each entry in `mockup.surfaces` carries a `label`, what was detected there,
+such as `pillow` or `wall`, so you can tell surfaces apart before you pick one.
+
+To move a print area and keep its id, pass that area's `print_area_id` to
+`client.photo_mockups.update_2d_print_areas` with its new `points`. An area
+without one gets a new id, and an id that is not one of the mockup's print
+areas is refused with `422`.
+
 ```python
 from sudomock import SudoMock
 
@@ -596,6 +608,8 @@ smart_objects = [{
         "position": {"top": 100, "left": 100},
         "size": {"width": 800, "height": 600},
         "remove_background": False,  # True isolates the subject (+25 credits per artwork)
+        "tile": False,       # True repeats the artwork as a pattern; size is one tile
+        "tile_spacing": 0,   # gap between tiles, 0 to 100 percent of the tile; only with tile
     },
     "color": {
         "hex": "#FFFFFF",
@@ -603,6 +617,14 @@ smart_objects = [{
     },
 }]
 ```
+
+With `"tile": True`, `size` is one tile, `fit` places the artwork inside each
+tile, and `position` sets where the grid starts. A tile needs a `size`; without
+one the API answers `422`. `tile_spacing` is a percentage of the tile size,
+from 0 to 100: the horizontal gap is that percent of the tile width, the
+vertical gap that percent of the tile height. It is used only when `tile` is
+`True`. The render mode of `client.renders.create_video` takes the same keys on
+its smart objects.
 
 ## Requirements
 
