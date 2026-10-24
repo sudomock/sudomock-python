@@ -776,6 +776,10 @@ class _AsyncPhotoMockupsResource:
     ) -> PhotoMockupPrintAreasUpdate:
         """Replace up to eight print areas.
 
+        Each area has four ``[x, y]`` points, an optional ``name`` and an
+        optional ``print_area_id``: the id of an existing print area of this
+        mockup to keep its id. Leave it out for a new area.
+
         An empty list is accepted only when the API has verified every product
         surface as printable; each of those is then a render target in its own
         right.
