@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `tile_spacing` on a smart object asset (PSD renders and the render mode of
+  video renders) and in a photo mockup placement sets the gap between tiles
+  when `tile` is true: a percentage of the tile size from 0 to 100, so the
+  horizontal gap is that percent of the tile width and the vertical gap that
+  percent of the tile height. A value outside 0 to 100 is refused with 422.
+- `photo_mockups.update_2d_print_areas` documents an optional `print_area_id`
+  on each area, on both clients. An area that carries the id of one of the
+  mockup's print areas keeps that id; an area without one gets a new id. An id
+  that is not one of the mockup's areas, or the same id on two areas, is
+  refused with 422.
+
 ## [0.16.0] - 2026-10-23
 
 ### Added
