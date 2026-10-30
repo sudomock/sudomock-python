@@ -456,11 +456,12 @@ print(f"Period ends: {account.subscription.current_period_end}")
 ```
 
 An account can be funded two independent ways, so read both before you draw a
-conclusion. `credits_limit` is a subscription's monthly allowance, and
-`prepaid_balance` is money the account holds and spends per render. An account
-paying as it goes has no allowance at all, so its three `credits_*` fields are
-legitimately `0` while it is fully able to pay. Printing only those renders it as
-`0 / 0`, and a bar drawn from them sits at 0% forever.
+conclusion. `credits_limit` is a subscription's allowance for the current
+billing period (a month, or a year on a yearly plan), and `prepaid_balance` is
+money the account holds and spends per render. An account paying as it goes has
+no allowance at all, so its three `credits_*` fields are legitimately `0` while
+it is fully able to pay. Printing only those renders it as `0 / 0`, and a bar
+drawn from them sits at 0% forever.
 
 ```python
 usage = account.usage
