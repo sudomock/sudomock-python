@@ -707,7 +707,7 @@ class TestImages:
         assert result.url.endswith("cutout.png")
         assert result.width == 1200
         assert result.height == 1600
-        assert result.credits_charged == 25
+        assert result.credits_charged == 5
         assert json.loads(route.calls.last.request.content) == {
             "url": "https://example.com/product-photo.jpg"
         }

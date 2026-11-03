@@ -231,7 +231,7 @@ class _RendersResource:
                 the artwork is sized and fitted.
                 Required unless ``text_layers`` or ``hidden_layers`` is
                 provided. Setting ``"remove_background": True`` on an asset isolates its subject
-                onto a clean transparent cutout before placement and adds 25
+                onto a clean transparent cutout before placement and adds 5
                 credits per unique artwork to the render cost.
             text_layers: Optional text replacements using layer UUIDs from the
                 mockup response. Required unless ``smart_objects`` or
@@ -881,7 +881,7 @@ class _PhotoMockupsResource:
                 true. At least one of ``base64``,
                 ``artwork_url`` or ``color`` must be supplied per area. Setting
                 ``"remove_background": True`` isolates the artwork's subject
-                onto a clean transparent cutout before placement and adds 25
+                onto a clean transparent cutout before placement and adds 5
                 credits per unique artwork to the render cost.
             export_options: Export settings (``image_format``, ``image_size``,
                 ``quality``, ``dpi``).
@@ -987,7 +987,7 @@ class _ImagesResource:
         base64: Optional[str] = None,
         content_type: Optional[str] = None,
     ) -> BackgroundRemoval:
-        """Remove the background from an image (costs 25 credits).
+        """Remove the background from an image (costs 5 credits).
 
         Returns a public transparent-PNG cutout URL that stays available for 7
         days, ready to hand back to a render as artwork. To clean artwork inline during a
@@ -1013,7 +1013,7 @@ class _ImagesResource:
 
         Raises:
             ValueError: If both or neither image source is supplied.
-            InsufficientCreditsError: If fewer than 25 credits remain.
+            InsufficientCreditsError: If fewer than 5 credits remain.
             ValidationError: If the image cannot be retrieved or is not a
                 supported format.
         """
