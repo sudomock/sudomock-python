@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.1] - 2026-11-03
+
+### Changed
+- Background removal is documented at 5 credits per image, on
+  `images.remove_background` and on the `remove_background` flag of render
+  assets and photo mockup print areas (5 credits per unique artwork), on both
+  clients.
+
 ## [0.17.0] - 2026-10-24
 
 ### Added

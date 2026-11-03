@@ -247,7 +247,7 @@ job = client.renders.create_video(
 
 Remove the background from an image; returns a reusable transparent-PNG URL
 valid for 7 days that you can hand straight back to a render as artwork.
-Supply exactly one of `url` or `base64`. Costs **25 credits** per image;
+Supply exactly one of `url` or `base64`. Costs **5 credits** per image;
 credits are refunded automatically if processing fails.
 
 ```python
@@ -255,7 +255,7 @@ cutout = client.images.remove_background(url="https://example.com/product-photo.
 
 print(cutout.url)              # public cutout URL, available for 7 days
 print(cutout.width, cutout.height)
-print(cutout.credits_charged)  # 25
+print(cutout.credits_charged)  # 5
 
 # Reuse the URL in renders during its 7-day validity window
 render = client.renders.create(
@@ -265,7 +265,7 @@ render = client.renders.create(
 ```
 
 To clean artwork inline during a render instead, set `remove_background` on the
-render asset or photo mockup print area. It adds **25 credits per unique artwork** to the
+render asset or photo mockup print area. It adds **5 credits per unique artwork** to the
 render (the same artwork reused across several smart objects or print areas is
 charged once).
 
@@ -556,7 +556,7 @@ client = SudoMock(
 
 | Method | Description |
 |--------|-------------|
-| `client.images.remove_background(url=, base64=, content_type=)` | Remove an image's background (25 credits; returns a `BackgroundRemoval` with a public transparent-PNG cutout URL that stays available for 7 days) |
+| `client.images.remove_background(url=, base64=, content_type=)` | Remove an image's background (5 credits; returns a `BackgroundRemoval` with a public transparent-PNG cutout URL that stays available for 7 days) |
 
 ### Account
 
@@ -609,7 +609,7 @@ smart_objects = [{
         "rotate": 0,         # degrees
         "position": {"top": 100, "left": 100},
         "size": {"width": 800, "height": 600},
-        "remove_background": False,  # True isolates the subject (+25 credits per artwork)
+        "remove_background": False,  # True isolates the subject (+5 credits per artwork)
         "tile": False,       # True repeats the artwork as a pattern; size is one tile
         "tile_spacing": 0,   # gap between tiles, 0 to 100 percent of the tile; only with tile
     },
