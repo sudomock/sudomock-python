@@ -290,6 +290,41 @@ client.photo_mockups.render(
 )
 ```
 
+## Seam Check and Fix
+
+Before you repeat an artwork as a pattern (`tile: True`), check that copies of
+the tile meet without a visible line. Seam check: free. Seam fix: 60 credits,
+refunded if the fix fails.
+
+Both take exactly one of `url` or `base64`. Pass `crop_aspect` (width divided
+by height) when the render places the tile with fit `"crop"`, so the check sees
+exactly the tile the render shows.
+
+```python
+check = client.images.check_seams(url="https://example.com/pattern-tile.png")
+print(check.status)        # "seamless" | "faint_seam" | "visible_seam"
+print(check.seams)         # sides with a seam, each with pixel ranges
+print(check.fixable, check.unfixable_reason)
+print(check.previous_fix)  # your latest fix of this same tile, or None
+
+if check.status == "visible_seam" and check.fixable:
+    job = client.images.fix_seams(url="https://example.com/pattern-tile.png")
+    done = client.jobs.wait(job.job_id)
+    if done.succeeded:
+        print(done.result_url)       # the fixed tile, same width and height
+        print(done.alternative_url)  # a second fixed version, or None
+        print(done.result_status)    # the fixed tile, checked again at no cost
+        print(done.changes)          # "edges" | "whole_tile"
+```
+
+A fix runs as a job of kind `seam_fix`; while it runs, `client.jobs.get` reports
+`stage`: `queued`, `fixing` or `finishing`. A tile with transparent edges, or one
+larger than a fix takes, is refused with a `ValidationError` and nothing is
+charged. Each call sends a fresh `Idempotency-Key`; pass `idempotency_key` to
+retry the same fix without paying twice. To be told when a fix ends instead of
+polling, subscribe a webhook endpoint to `seam_fix.succeeded` and
+`seam_fix.failed`; their payload carries `result_url` and `alternative_url`.
+
 ## PSD Upload
 
 Upload a PSD by URL and parse it into a mockup template. PSD uploads are **free**
@@ -530,7 +565,7 @@ client = SudoMock(
 
 | Method | Description |
 |--------|-------------|
-| `client.jobs.list(kind=, mockup_uuid=, limit=, cursor=)` | List your async jobs (keyset-paginated, newest first). `kind` is a `JobKind`: `render`, `video`, `upload`, `2d_create`, `2d_render`, `photo_mockup_create`, `photo_mockup_render`; a photo-mockup kind selects both spellings of that job |
+| `client.jobs.list(kind=, mockup_uuid=, limit=, cursor=)` | List your async jobs (keyset-paginated, newest first). `kind` is a `JobKind`: `render`, `video`, `upload`, `2d_create`, `2d_render`, `photo_mockup_create`, `photo_mockup_render`, `seam_fix`; a photo-mockup kind selects both spellings of that job |
 | `client.jobs.get(job_id)` | Get async job status (`queued`/`running`/`succeeded`/`failed`) |
 | `client.jobs.wait(job_id, poll_interval=2.0, timeout=300.0)` | Poll until the job reaches a terminal state |
 
@@ -557,6 +592,8 @@ client = SudoMock(
 | Method | Description |
 |--------|-------------|
 | `client.images.remove_background(url=, base64=, content_type=)` | Remove an image's background (5 credits; returns a `BackgroundRemoval` with a public transparent-PNG cutout URL that stays available for 7 days) |
+| `client.images.check_seams(url=, base64=, content_type=, crop_aspect=)` | Check a pattern tile for seams (free; returns a `SeamCheck` with `status`, `seams`, `fixable` and `previous_fix`) |
+| `client.images.fix_seams(url=, base64=, content_type=, crop_aspect=, idempotency_key=)` | Fix the seams of a pattern tile (60 credits, refunded if the fix fails; returns a `JobAccepted` of kind `seam_fix`) |
 
 ### Account
 
