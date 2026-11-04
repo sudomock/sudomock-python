@@ -329,6 +329,7 @@ class TestJobKind:
             "2d_render",
             "photo_mockup_create",
             "photo_mockup_render",
+            "seam_fix",
         )
 
     def test_job_kind_is_exported_from_the_package(self) -> None:

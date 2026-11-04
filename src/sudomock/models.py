@@ -545,7 +545,58 @@ class BackgroundRemoval(_Outcome):
 
 
 # ---------------------------------------------------------------------------
-# Async jobs (is_async renders / uploads / video)
+# Seam check and seam fix
+# ---------------------------------------------------------------------------
+
+
+class SeamSide(_Outcome):
+    """One side of a tile where its copies meet with a seam.
+
+    ``side`` is ``left_right`` (where the right edge of one copy meets the left
+    edge of the next) or ``top_bottom`` (where the bottom edge of one copy meets
+    the top edge of the next). ``status`` is ``faint_seam`` or
+    ``visible_seam``. ``ranges`` lists where along that side the seam shows, as
+    pixel ranges ``[start, end)`` with ``end`` excluded: rows for
+    ``left_right``, columns for ``top_bottom``.
+    """
+
+    side: str
+    status: str
+    ranges: list[list[int]] = Field(default_factory=list)
+
+
+class SeamPreviousFix(_Outcome):
+    """A seam fix you already ran on this same tile; reuse it at no cost."""
+
+    job_id: str
+    result_url: str
+    # A second fixed version when one was delivered, otherwise ``None``.
+    alternative_url: Optional[str] = None
+
+
+class SeamCheck(_Outcome):
+    """Result of ``POST /api/v1/check-seams``.
+
+    ``status`` is ``seamless`` (copies meet with no visible line),
+    ``faint_seam`` (a faint line may show) or ``visible_seam`` (a line shows).
+    ``seams`` lists only the sides with a seam and is empty when seamless.
+    ``width`` and ``height`` are the checked tile's size after any crop.
+    ``unfixable_reason`` is ``transparent_edges`` or ``too_large`` when
+    ``fixable`` is false, else ``None``. ``previous_fix`` is your latest
+    completed seam fix of this same tile, or ``None``.
+    """
+
+    status: str
+    seams: list[SeamSide] = Field(default_factory=list)
+    width: int
+    height: int
+    fixable: bool
+    unfixable_reason: Optional[str] = None
+    previous_fix: Optional[SeamPreviousFix] = None
+
+
+# ---------------------------------------------------------------------------
+# Async jobs (is_async renders / uploads / video / seam fix)
 # ---------------------------------------------------------------------------
 
 # Every ``jobs.kind`` value the API admits, in the order the API lists them.
@@ -562,6 +613,7 @@ JobKind = Literal[
     "2d_render",
     "photo_mockup_create",
     "photo_mockup_render",
+    "seam_fix",
 ]
 
 # The spellings that mean "create a photo mockup" / "render a photo mockup".
@@ -574,8 +626,8 @@ class JobAccepted(_Outcome):
     """Acknowledgement returned by a ``202 Accepted`` async submission.
 
     Returned by ``renders.create(..., is_async=True)``, ``psd.upload(...,
-    is_async=True)``, ``renders.create_video(...)``, and ``photo_mockups.create(...,
-    is_async=True)``. Poll for completion with :meth:`jobs.get` or
+    is_async=True)``, ``renders.create_video(...)``, ``photo_mockups.create(...,
+    is_async=True)`` and ``images.fix_seams(...)``. Poll for completion with :meth:`jobs.get` or
     :meth:`jobs.wait` using :attr:`job_id`.
 
     :attr:`kind` is one of :data:`JobKind` today; it stays a plain string so a
@@ -629,6 +681,18 @@ class Job(_Outcome):
     audio: Optional[bool] = None
     mockup_name: Optional[str] = None
     poster_url: Optional[str] = None
+    # Seam fix jobs only. ``alternative_url`` is a second fixed version of the
+    # tile, ``None`` unless the job succeeded with one. ``result_status`` is the
+    # fixed tile checked again at no cost (``seamless``, ``faint_seam`` or
+    # ``visible_seam``). ``changes`` is ``edges`` when only the area along the
+    # edges changed, ``whole_tile`` when every pixel changed and fine detail may
+    # look a little softer. ``stage`` (``queued``, ``fixing``, ``finishing``)
+    # only moves forward. Declared one by one: this model ignores fields it
+    # does not name.
+    alternative_url: Optional[str] = None
+    result_status: Optional[str] = None
+    changes: Optional[str] = None
+    stage: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 

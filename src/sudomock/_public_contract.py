@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import math
 import re
 from typing import Any, Optional
 
@@ -83,6 +84,33 @@ def _check_sizing(placement: dict[str, Any]) -> None:
             "Render target placement gives two different ways to size: "
             f"an explicit width and height, and {crossed[0]}. Send one."
         )
+
+
+def seam_tile_body(
+    name: str,
+    url: Optional[str],
+    base64_data: Optional[str],
+    content_type: Optional[str],
+    crop_aspect: Optional[float],
+) -> dict[str, Any]:
+    """Build the body of a seam check or seam fix: exactly one image source,
+    and a crop aspect above 0 when one is given. Both are a 422 at the API;
+    refusing them here costs no call."""
+    if bool(url) == bool(base64_data):
+        raise ValueError(f"{name} requires exactly one of url or base64")
+    body: dict[str, Any] = {"url": url} if url else {"base64": base64_data}
+    if content_type is not None:
+        body["content_type"] = content_type
+    if crop_aspect is not None:
+        if (
+            isinstance(crop_aspect, bool)
+            or not isinstance(crop_aspect, (int, float))
+            or not math.isfinite(crop_aspect)
+            or crop_aspect <= 0
+        ):
+            raise ValueError(f"{name} crop_aspect must be a number greater than 0")
+        body["crop_aspect"] = crop_aspect
+    return body
 
 
 def public_error_text(value: Any, fallback: Optional[str] = None) -> Optional[str]:

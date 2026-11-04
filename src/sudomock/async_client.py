@@ -49,7 +49,7 @@ from ._http import (
     PSD_MOCKUPS_PATH,
     AsyncTransport,
 )
-from ._public_contract import public_2d_render_targets
+from ._public_contract import public_2d_render_targets, seam_tile_body
 from .exceptions import JobFailedError, JobTimeoutError, SudoMockError
 from .models import (
     PHOTO_MOCKUP_CREATE_KINDS,
@@ -68,6 +68,7 @@ from .models import (
     PhotoMockupRender,
     PlanList,
     Render,
+    SeamCheck,
     StudioActionContext,
     StudioActionReceipt,
     StudioResultEvent,
@@ -389,9 +390,9 @@ class _AsyncJobsResource:
 
         Args:
             kind: Filter by job kind: ``video``, ``render``, ``upload``,
-                ``2d_create``, ``2d_render``, ``photo_mockup_create`` or
-                ``photo_mockup_render``. A photo-mockup kind selects both
-                spellings of that job.
+                ``2d_create``, ``2d_render``, ``photo_mockup_create``,
+                ``photo_mockup_render`` or ``seam_fix``. A photo-mockup kind
+                selects both spellings of that job.
             mockup_uuid: Filter by source mockup (raw-image videos excluded).
             limit: Page size, 1..50 (default server-side: 20).
             cursor: Opaque keyset cursor from a previous page's ``next_cursor``.
@@ -975,6 +976,107 @@ class _AsyncImagesResource:
             timeout=self._transport._render_timeout,
         )
         return BackgroundRemoval.model_validate(resp.json()["data"])
+
+    async def check_seams(
+        self,
+        *,
+        url: Optional[str] = None,
+        base64: Optional[str] = None,
+        content_type: Optional[str] = None,
+        crop_aspect: Optional[float] = None,
+    ) -> SeamCheck:
+        """Check a pattern tile for seams (free).
+
+        Shows whether copies of the tile meet without a visible line when it
+        repeats on a mockup, and where a line appears. Seam check: free. Seam
+        fix: 60 credits, refunded if the fix fails.
+
+        Args:
+            url: Public HTTP/HTTPS URL of the tile image.
+            base64: Raw base64-encoded image bytes (no ``data:`` prefix).
+            content_type: Optional MIME type of the ``base64`` bytes; the file
+                type is detected from the image itself.
+            crop_aspect: Width divided by height of the tile when the render
+                places the artwork with fit ``"crop"``. The image is cut
+                exactly as that render cuts it, then checked. Leave it out to
+                check the whole image.
+
+        Returns:
+            :class:`SeamCheck` with ``status`` (``seamless``, ``faint_seam``
+            or ``visible_seam``), ``seams`` with pixel ``ranges`` per side,
+            ``width`` / ``height``, ``fixable`` with ``unfixable_reason``, and
+            ``previous_fix`` (your latest fix of this same tile, or ``None``).
+
+        Raises:
+            ValueError: If both or neither image source is supplied, or
+                ``crop_aspect`` is not above 0.
+            ValidationError: If the image cannot be retrieved or is not a
+                supported format.
+            RateLimitError: If too many new tiles are checked in a minute.
+        """
+        body = seam_tile_body("check_seams", url, base64, content_type, crop_aspect)
+        resp = await self._transport.request(
+            "POST",
+            "/api/v1/check-seams",
+            json=body,
+            timeout=self._transport._render_timeout,
+        )
+        return SeamCheck.model_validate(resp.json()["data"])
+
+    async def fix_seams(
+        self,
+        *,
+        url: Optional[str] = None,
+        base64: Optional[str] = None,
+        content_type: Optional[str] = None,
+        crop_aspect: Optional[float] = None,
+        idempotency_key: Optional[str] = None,
+    ) -> JobAccepted:
+        """Fix the seams of a pattern tile (costs 60 credits).
+
+        Makes the tile repeat without a visible line where its copies meet,
+        keeping its width and height. Runs as a job of kind ``seam_fix``: wait
+        for it with :meth:`AsyncSudoMock.jobs.wait`; the finished :class:`Job`
+        carries ``result_url``, ``alternative_url`` (a second fixed version, or
+        ``None``), ``result_status`` and ``changes``. Takes the same fields as
+        :meth:`check_seams`, so the tile is fixed exactly as the check sees it.
+        A tile with transparent edges, or one larger than a fix takes, is
+        refused and nothing is charged. Seam fix: 60 credits, refunded if the
+        fix fails. Seam check: free.
+
+        Args:
+            url: Public HTTP/HTTPS URL of the tile image.
+            base64: Raw base64-encoded image bytes (no ``data:`` prefix).
+            content_type: Optional MIME type of the ``base64`` bytes.
+            crop_aspect: Width divided by height of the tile when the render
+                places the artwork with fit ``"crop"``.
+            idempotency_key: Optional key for safely retrying this fix. A
+                retry with the same key returns the same job and is not
+                charged again. A UUID is generated when omitted.
+
+        Returns:
+            :class:`JobAccepted` with ``job_id``, ``kind`` ``seam_fix`` and
+            ``status_url``.
+
+        Raises:
+            ValueError: If both or neither image source is supplied, or
+                ``crop_aspect`` is not above 0.
+            InsufficientCreditsError: If fewer than 60 credits remain.
+            ValidationError: If the image cannot be used, has transparent
+                edges, or is larger than a fix takes.
+        """
+        body = seam_tile_body("fix_seams", url, base64, content_type, crop_aspect)
+        if idempotency_key is None:
+            idempotency_key = str(uuid4())
+        resp = await self._transport.request(
+            "POST",
+            "/api/v1/fix-seams",
+            json=body,
+            headers={"Idempotency-Key": idempotency_key},
+            timeout=self._transport._render_timeout,
+        )
+        # 202 with a BARE body {job_id, kind, status, status_url}.
+        return JobAccepted.model_validate(resp.json())
 
 
 class _AsyncAccountResource:
