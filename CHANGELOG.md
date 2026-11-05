@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-11-05
+
 ### Added
 - `images.check_seams` checks whether copies of a pattern tile meet without a
   visible line when it repeats, and where a line appears. It takes exactly one
@@ -20,6 +22,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Both are on `SudoMock` and `AsyncSudoMock`.
 - `Job` declares `alternative_url`, `result_status`, `changes` and `stage` for a
   seam fix, and `JobKind` gains `seam_fix`.
+- `Job.error_details.reason` says why a seam fix ended with `TILE_NOT_FIXABLE`:
+  `not_a_pattern_tile` when the image is not a repeating pattern tile,
+  `no_clean_result` when no fixed version of the tile repeated cleanly.
+  `JobErrorDetails` is exported from `sudomock`.
+- `PhotoMockupRender` carries `warnings`, as `Render` does. A render that
+  repeats a tile with no gap between copies carries `TILE_SEAM_VISIBLE` once a
+  seam check has found a visible seam in that tile.
+- `SeamCheck`, `SeamSide` and `SeamPreviousFix` are exported from `sudomock`.
 
 ## [0.17.1] - 2026-11-03
 
