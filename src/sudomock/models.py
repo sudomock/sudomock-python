@@ -442,6 +442,10 @@ class PhotoMockupRender(_Outcome):
 
     print_files: list[PrintFile] = Field(default_factory=list)
     render_uuid: Optional[str] = None
+    # Non-fatal advisories for this render, each with a ``code`` and a
+    # ``message``; for example ``TILE_SEAM_VISIBLE`` when a pattern tile shows a
+    # visible line where its copies meet. Empty when there are none.
+    warnings: list[ApiWarning] = Field(default_factory=list)
 
     @property
     def url(self) -> str:
@@ -655,6 +659,18 @@ class PaygCost(_Outcome):
     cost: Optional[float] = None
 
 
+class JobErrorDetails(_Outcome):
+    """More about why a job produced no result.
+
+    Present only when the job's ``error_code`` is ``TILE_NOT_FIXABLE``.
+    ``reason`` says why a seam fix ended that way: ``not_a_pattern_tile`` when
+    the image is not a repeating pattern tile, ``no_clean_result`` when no fixed
+    version of the tile repeated cleanly.
+    """
+
+    reason: Optional[str] = None
+
+
 class Job(_Outcome):
     """Status of an async job from ``GET /api/v1/jobs/{job_id}``.
 
@@ -671,6 +687,9 @@ class Job(_Outcome):
     mockup_uuid: Optional[str] = None
     error: Optional[str] = None
     error_code: Optional[str] = None
+    # More about the failure, present only when ``error_code`` is
+    # ``TILE_NOT_FIXABLE``: see :class:`JobErrorDetails`.
+    error_details: Optional[JobErrorDetails] = None
     # Real charge for the job. For credit/subscription jobs this is the
     # deducted credit count; for PAYG it is the billable credit count (NOT the
     # stored 0). The dollar amount lives in :attr:`payg`.
@@ -706,6 +725,7 @@ class Job(_Outcome):
         error_code = public.get("error_code")
         if isinstance(error, dict):
             error_code = error.get("error_code", error_code)
+            public["error_details"] = error.get("details")
             error = error.get("message") or error.get("reason")
         public["error"] = public_error_text(
             error,

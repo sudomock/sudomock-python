@@ -847,8 +847,8 @@ class _AsyncPhotoMockupsResource:
 
         Returns:
             :class:`PhotoMockupRender` (synchronous default) with ``print_files``,
-            ``render_uuid`` and a convenience ``.url`` property, or
-            :class:`JobAccepted` with ``job_id`` and ``status_url`` when
+            ``render_uuid``, ``warnings`` and a convenience ``.url`` property,
+            or :class:`JobAccepted` with ``job_id`` and ``status_url`` when
             ``is_async=True``.
 
         Raises:
@@ -875,7 +875,10 @@ class _AsyncPhotoMockupsResource:
             # status, status_url} — no {success, data} envelope. The sync path
             # still wraps in {success, data}.
             return JobAccepted.model_validate(resp.json())
-        return PhotoMockupRender.model_validate(resp.json()["data"])
+        payload = resp.json()
+        return PhotoMockupRender.model_validate(
+            {**payload["data"], "warnings": payload.get("warnings") or []}
+        )
 
     async def list(
         self,

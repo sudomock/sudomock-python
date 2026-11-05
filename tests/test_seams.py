@@ -10,7 +10,7 @@ import pytest
 
 from sudomock import AsyncSudoMock, SudoMock
 from sudomock.exceptions import InsufficientCreditsError, ValidationError
-from sudomock.models import Job, JobAccepted, SeamCheck
+from sudomock.models import Job, JobAccepted, PhotoMockupRender, SeamCheck
 
 from .conftest import ERROR_402, TEST_API_KEY, TEST_BASE_URL
 
@@ -60,6 +60,26 @@ FIX_SUCCEEDED = {
     "payg": None,
     "created_at": "2026-11-05T00:00:00Z",
     "updated_at": "2026-11-05T00:00:40Z",
+}
+
+SEAM_WARNING_MESSAGE = (
+    "The pattern tile shows a visible line where its copies meet. "
+    "Check it with POST /api/v1/check-seams and fix it with POST /api/v1/fix-seams."
+)
+
+RENDER_WITH_SEAM_WARNING = {
+    "success": True,
+    "data": {
+        "render_uuid": "r1",
+        "print_files": [
+            {
+                "export_path": "https://cdn.sudomock.com/r1.webp",
+                "duration_ms": 900,
+                "export_format": "webp",
+            }
+        ],
+    },
+    "warnings": [{"code": "TILE_SEAM_VISIBLE", "message": SEAM_WARNING_MESSAGE}],
 }
 
 TRANSPARENT_EDGES_422 = {
@@ -223,6 +243,7 @@ class TestSeamFixJob:
                     "error": {
                         "error_code": "TILE_NOT_FIXABLE",
                         "message": "This image could not be made into a seamless tile.",
+                        "details": {"reason": "not_a_pattern_tile"},
                     },
                     "credits_charged": 0,
                 },
@@ -235,6 +256,8 @@ class TestSeamFixJob:
             "TILE_NOT_FIXABLE",
             "This image could not be made into a seamless tile.",
         )
+        assert job.error_details is not None
+        assert job.error_details.reason == "not_a_pattern_tile"
         assert job.stage == "fixing"
         assert job.alternative_url is None
 
@@ -248,6 +271,41 @@ class TestSeamFixJob:
 
         assert route.calls.last.request.url.params["kind"] == "seam_fix"
         assert page.jobs[0].alternative_url == ALTERNATIVE
+
+
+class TestPhotoMockupRenderWarnings:
+    def test_keeps_the_seam_advisory(self, mock_api: respx.MockRouter, client: SudoMock) -> None:
+        mock_api.post("/api/v1/photo-mockups/m1/render").mock(
+            return_value=httpx.Response(200, json=RENDER_WITH_SEAM_WARNING)
+        )
+        render = client.photo_mockups.render(
+            mockup_uuid="m1",
+            print_areas=[
+                {"uuid": "p1", "artwork_url": TILE, "placement": {"fit": "fit", "tile": True}}
+            ],
+        )
+
+        assert isinstance(render, PhotoMockupRender)
+        assert render.url == "https://cdn.sudomock.com/r1.webp"
+        assert [(w.code, w.message) for w in render.warnings] == [
+            ("TILE_SEAM_VISIBLE", SEAM_WARNING_MESSAGE)
+        ]
+
+    def test_empty_when_the_render_has_none(
+        self, mock_api: respx.MockRouter, client: SudoMock
+    ) -> None:
+        mock_api.post("/api/v1/photo-mockups/m1/render").mock(
+            return_value=httpx.Response(200, json={**RENDER_WITH_SEAM_WARNING, "warnings": None})
+        )
+        render = client.photo_mockups.render(
+            mockup_uuid="m1", print_areas=[{"uuid": "p1", "artwork_url": TILE}]
+        )
+
+        assert isinstance(render, PhotoMockupRender)
+        assert render.warnings == []
+
+    def test_no_job_error_details_without_a_failure(self) -> None:
+        assert Job.model_validate(FIX_SUCCEEDED).error_details is None
 
 
 class TestAsyncSeams:
@@ -275,6 +333,18 @@ class TestAsyncSeams:
         assert job.kind == "seam_fix"
         assert done.alternative_url == ALTERNATIVE
         assert done.changes == "whole_tile"
+
+    async def test_photo_mockup_render_keeps_its_warnings(self, mock_api: respx.MockRouter) -> None:
+        mock_api.post("/api/v1/photo-mockups/m1/render").mock(
+            return_value=httpx.Response(200, json=RENDER_WITH_SEAM_WARNING)
+        )
+        async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
+            render = await client.photo_mockups.render(
+                mockup_uuid="m1", print_areas=[{"uuid": "p1", "artwork_url": TILE}]
+            )
+
+        assert isinstance(render, PhotoMockupRender)
+        assert render.warnings[0].code == "TILE_SEAM_VISIBLE"
 
     async def test_refuses_both_sources(self, mock_api: respx.MockRouter) -> None:
         async with AsyncSudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
