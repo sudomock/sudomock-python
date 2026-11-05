@@ -315,6 +315,8 @@ if check.status == "visible_seam" and check.fixable:
         print(done.alternative_url)  # a second fixed version, or None
         print(done.result_status)    # the fixed tile, checked again at no cost
         print(done.changes)          # "edges" | "whole_tile"
+    elif done.error_code == "TILE_NOT_FIXABLE":
+        print(done.error_details.reason)  # "not_a_pattern_tile" | "no_clean_result"
 ```
 
 A fix runs as a job of kind `seam_fix`; while it runs, `client.jobs.get` reports
@@ -324,6 +326,29 @@ charged. Each call sends a fresh `Idempotency-Key`; pass `idempotency_key` to
 retry the same fix without paying twice. To be told when a fix ends instead of
 polling, subscribe a webhook endpoint to `seam_fix.succeeded` and
 `seam_fix.failed`; their payload carries `result_url` and `alternative_url`.
+
+A fix that cannot make the tile repeat cleanly fails with `error_code`
+`TILE_NOT_FIXABLE` and is refunded. `error_details.reason` says why:
+`not_a_pattern_tile` when the image is not a repeating pattern tile,
+`no_clean_result` when no fixed version of the tile repeated cleanly.
+
+Once a seam check has found a visible seam in a tile, a PSD or photo mockup
+render that repeats that tile with no gap between copies still completes, and
+its `warnings` carry the code `TILE_SEAM_VISIBLE`.
+
+```python
+render = client.photo_mockups.render(
+    mockup_uuid="mockup-uuid",
+    print_areas=[{
+        "uuid": "print-area-uuid",
+        "artwork_url": "https://example.com/pattern-tile.png",
+        "placement": {"fit": "fit", "tile": True},
+    }],
+)
+for warning in render.warnings:
+    if warning.code == "TILE_SEAM_VISIBLE":
+        print(warning.message)
+```
 
 ## PSD Upload
 
@@ -582,7 +607,7 @@ client = SudoMock(
 | `client.photo_mockups.create(source_url=, source_base64=, name=, print_areas=, is_async=False, idempotency_key=)` | Create a photo mockup (25 credits; sync `PhotoMockup` by default, or `JobAccepted` when `is_async=True`) |
 | `client.photo_mockups.wait_for_2d_mockup(job_id, poll_interval=2.0, timeout=180.0)` | Wait for an `is_async=True` creation and return the full photo mockup (accepts a job of kind `2d_create` or `photo_mockup_create`) |
 | `client.photo_mockups.update_2d_print_areas(mockup_id, print_areas)` | Replace a photo mockup's print areas (free); an area with `print_area_id` keeps that id |
-| `client.photo_mockups.render(mockup_uuid=, print_areas=, export_options=, is_async=False)` | Render artwork onto a photo mockup (5 credits; sync `PhotoMockupRender` with `render_uuid` by default, or `JobAccepted` when `is_async=True`) |
+| `client.photo_mockups.render(mockup_uuid=, print_areas=, export_options=, is_async=False)` | Render artwork onto a photo mockup (5 credits; sync `PhotoMockupRender` with `render_uuid` and `warnings` by default, or `JobAccepted` when `is_async=True`) |
 | `client.photo_mockups.list(limit=, offset=, customizable_only=)` | List your photo mockups; set `customizable_only=True` for shopper-ready items |
 | `client.photo_mockups.get(mockup_id)` | Get a photo mockup |
 | `client.photo_mockups.delete(mockup_id)` | Delete a photo mockup |
