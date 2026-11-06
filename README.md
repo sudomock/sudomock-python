@@ -316,6 +316,7 @@ if check.status == "visible_seam" and check.fixable:
         print(done.result_status)    # the fixed tile, checked again at no cost
         print(done.changes)          # "edges" | "whole_tile" | "rearranged"
         print(done.fine_detail)      # "unchanged" | "softer"
+        print(done.changed_area)     # "part" | "whole"
     elif done.error_code == "TILE_NOT_FIXABLE":
         print(done.error_details.reason)  # "not_a_pattern_tile" | "no_clean_result"
 ```
