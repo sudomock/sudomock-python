@@ -704,13 +704,16 @@ class Job(_Outcome):
     # tile, ``None`` unless the job succeeded with one. ``result_status`` is the
     # fixed tile checked again at no cost (``seamless``, ``faint_seam`` or
     # ``visible_seam``). ``changes`` is ``edges`` when only the area along the
-    # edges changed, ``whole_tile`` when every pixel changed and fine detail may
-    # look a little softer. ``stage`` (``queued``, ``fixing``, ``finishing``)
+    # edges changed, ``whole_tile`` when the change reaches across the tile,
+    # ``rearranged`` when motifs were moved so none is cut. ``fine_detail`` is
+    # ``unchanged``, or ``softer`` when the tile was rebuilt, and ``None`` on
+    # older fixes. ``stage`` (``queued``, ``fixing``, ``finishing``)
     # only moves forward. Declared one by one: this model ignores fields it
     # does not name.
     alternative_url: Optional[str] = None
     result_status: Optional[str] = None
     changes: Optional[str] = None
+    fine_detail: Optional[str] = None
     stage: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
