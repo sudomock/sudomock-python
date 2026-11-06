@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.18.1] - 2026-11-06
+
+The first published release with everything listed under 0.18.0, which never
+reached PyPI. No code changed between them.
+
 ## [0.18.0] - 2026-11-06
 
 ### Added
