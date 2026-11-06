@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.18.3] - 2026-11-06
+
+### Added
+
+- `Job.changed_area` says how much of the tile a seam fix changed: `part` or
+  `whole`.
+
 ## [0.18.2] - 2026-11-06
 
 ### Added
