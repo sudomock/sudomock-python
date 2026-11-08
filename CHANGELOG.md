@@ -33,6 +33,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `client.psd.upload()` and `client.photo_mockups.create()` take `folder_uuid`,
   so a new template lands where it belongs without a second call.
 
+### Fixed
+
+- Every id the SDK puts in a request path is url-encoded, so an id that
+  carries a `?` stays one path segment instead of adding a query parameter to
+  the call. It covers `psd_mockups`, `photo_mockups`, `jobs`,
+  `webhook_endpoints` and `folders`, on both the sync and the async client.
+  This is not a breaking change: a uuid encodes to itself, so every call
+  written against an earlier version produces the same request it did before.
+
 ### Changed
 
 - `client.psd_mockups.update()` takes `name` as an optional keyword and adds
