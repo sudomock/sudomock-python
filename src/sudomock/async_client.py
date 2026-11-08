@@ -36,6 +36,7 @@ import os
 import time
 import warnings
 from typing import Any, Literal, Optional, Union
+from urllib.parse import quote
 from uuid import uuid4
 
 from ._http import (
@@ -45,9 +46,13 @@ from ._http import (
     DEFAULT_TIMEOUT,
     EARLIER_PHOTO_MOCKUPS_PATH,
     EARLIER_PSD_MOCKUPS_PATH,
+    FOLDER_MOVE_MAX,
+    FOLDERS_PATH,
     PHOTO_MOCKUPS_PATH,
     PSD_MOCKUPS_PATH,
+    UNSET,
     AsyncTransport,
+    _Unset,
 )
 from ._public_contract import public_2d_render_targets, seam_tile_body
 from .exceptions import JobFailedError, JobTimeoutError, SudoMockError
@@ -55,6 +60,11 @@ from .models import (
     PHOTO_MOCKUP_CREATE_KINDS,
     AccountInfo,
     BackgroundRemoval,
+    Folder,
+    FolderDelete,
+    FolderDetail,
+    FolderList,
+    FolderMove,
     Job,
     JobAccepted,
     JobKind,
@@ -105,6 +115,7 @@ class _AsyncPsdMockupsResource:
         created_before: Optional[str] = None,
         sort: Optional[str] = None,
         order: Optional[str] = None,
+        folder_uuid: Optional[str] = None,
     ) -> MockupList:
         """List mockup templates with optional pagination and filters.
 
@@ -117,6 +128,9 @@ class _AsyncPsdMockupsResource:
             sort: Sort field, one of ``name`` | ``created_at`` | ``updated_at``
                 (default ``created_at``).
             order: Sort direction, ``asc`` | ``desc`` (default ``desc``).
+            folder_uuid: Only mockups in this folder. Pass a folder uuid, or
+                ``"root"`` for the ones at the top of the library. Omit it
+                for every mockup, wherever it sits.
 
         Returns:
             :class:`MockupList` with ``mockups``, ``total``, ``limit``, ``offset``.
@@ -132,6 +146,7 @@ class _AsyncPsdMockupsResource:
                 "created_before": created_before,
                 "sort": sort,
                 "order": order,
+                "folder_uuid": folder_uuid,
             },
         )
         data = resp.json()["data"]
@@ -176,20 +191,42 @@ class _AsyncPsdMockupsResource:
         resp = await self._transport.request("GET", f"{self._base}/{uuid}/layers")
         return MockupLayers.model_validate(resp.json()["data"])
 
-    async def update(self, uuid: str, *, name: str) -> Mockup:
-        """Rename a mockup.
+    async def update(
+        self,
+        uuid: str,
+        *,
+        name: Optional[str] = None,
+        folder_uuid: Union[Optional[str], _Unset] = UNSET,
+    ) -> Mockup:
+        """Rename a mockup, or move it to another folder.
+
+        An argument you do not pass is left alone. ``folder_uuid=None`` moves
+        the mockup to the top of the library, which is why it cannot double as
+        "leave it where it is". Moving never changes the mockup's uuid, so
+        renders, webhooks and integrations keep working against the uuid they
+        already hold.
 
         Args:
             uuid: Mockup identifier.
             name: New mockup name (1..255 characters).
+            folder_uuid: Folder to move the mockup into, or ``None`` for the
+                top of the library.
 
         Returns:
             The updated :class:`Mockup`.
 
         Raises:
             NotFoundError: If the mockup does not exist.
+            ValueError: If neither ``name`` nor ``folder_uuid`` is given.
         """
-        resp = await self._transport.request("PATCH", f"{self._base}/{uuid}", json={"name": name})
+        body: dict[str, Any] = {}
+        if name is not None:
+            body["name"] = name
+        if not isinstance(folder_uuid, _Unset):
+            body["folder_uuid"] = folder_uuid
+        if not body:
+            raise ValueError("Pass name, folder_uuid, or both")
+        resp = await self._transport.request("PATCH", f"{self._base}/{uuid}", json=body)
         payload = resp.json()
         return Mockup.model_validate({**payload["data"], "warnings": payload.get("warnings") or []})
 
@@ -470,6 +507,7 @@ class _AsyncPsdResource:
         *,
         url: str,
         name: Optional[str] = None,
+        folder_uuid: Optional[str] = None,
         is_async: bool = False,
     ) -> Union[Mockup, JobAccepted]:
         """Upload a PSD by URL and parse it into a mockup template (free).
@@ -477,6 +515,8 @@ class _AsyncPsdResource:
         Args:
             url: Public URL of the ``.psd`` file.
             name: Optional name for the resulting mockup.
+            folder_uuid: Folder the new mockup goes into. Omit it to put the
+                mockup at the top of the library.
             is_async: If ``True``, return a :class:`JobAccepted` (202) and poll
                 with :meth:`jobs.get`. Defaults to ``False`` (blocking).
 
@@ -488,6 +528,8 @@ class _AsyncPsdResource:
         body: dict[str, Any] = {"psd_file_url": url}
         if name is not None:
             body["psd_name"] = name
+        if folder_uuid is not None:
+            body["folder_uuid"] = folder_uuid
         if is_async:
             body["is_async"] = True
 
@@ -672,6 +714,7 @@ class _AsyncPhotoMockupsResource:
         source_base64: Optional[str] = None,
         name: Optional[str] = None,
         print_areas: Optional[list[dict[str, Any]]] = None,
+        folder_uuid: Optional[str] = None,
         is_async: bool = False,
         idempotency_key: Optional[str] = None,
     ) -> Union[PhotoMockup, JobAccepted]:
@@ -688,6 +731,8 @@ class _AsyncPhotoMockupsResource:
             name: Optional mockup name.
             print_areas: Optional seed print areas, each a dict of four
                 ``[x, y]`` points with an optional ``name``.
+            folder_uuid: Folder the new mockup goes into. Omit it to put the
+                mockup at the top of the library.
             is_async: If ``True``, submit to the async queue and return a
                 :class:`JobAccepted` (HTTP 202) immediately. Defaults to
                 ``False`` (synchronous 201 + full mockup).
@@ -712,6 +757,8 @@ class _AsyncPhotoMockupsResource:
             body["name"] = name
         if print_areas is not None:
             body["print_areas"] = print_areas
+        if folder_uuid is not None:
+            body["folder_uuid"] = folder_uuid
         if is_async:
             body["is_async"] = True
         if idempotency_key is None:
@@ -886,6 +933,7 @@ class _AsyncPhotoMockupsResource:
         limit: Optional[int] = None,
         offset: Optional[int] = None,
         customizable_only: Optional[bool] = None,
+        folder_uuid: Optional[str] = None,
     ) -> PhotoMockupList:
         """List your photo mockups (free; zero credits)."""
         resp = await self._transport.request(
@@ -895,6 +943,7 @@ class _AsyncPhotoMockupsResource:
                 "limit": limit,
                 "offset": offset,
                 "customizable_only": customizable_only,
+                "folder_uuid": folder_uuid,
             },
         )
         payload = resp.json()
@@ -1193,6 +1242,213 @@ class _AsyncStudioResource:
         return StudioActionReceipt.model_validate(response.json())
 
 
+class _AsyncFoldersResource:
+    """Library folder operations (list, create, get, update, delete, move).
+
+    PSD mockups and photo mockups share one tree: every mockup sits in exactly
+    one folder or at the top of the library, and folders nest. Every call here
+    is free.
+    """
+
+    def __init__(self, transport: AsyncTransport) -> None:
+        self._transport = transport
+
+    @staticmethod
+    def _path(uuid: str) -> str:
+        """One folder's path, with the uuid kept to a single path segment.
+
+        A uuid that arrives from an application's own end user must not be able
+        to add query parameters: unencoded, a ``?`` in it would reach the query
+        string, and a caller that never asked for ``recursive`` could still be
+        made to delete a folder's whole contents.
+        """
+        return f"{FOLDERS_PATH}/{quote(uuid, safe='')}"
+
+    async def list(
+        self,
+        *,
+        parent_uuid: Optional[str] = None,
+        limit: Optional[int] = None,
+        offset: Optional[int] = None,
+    ) -> FolderList:
+        """List folders, by name, with pagination.
+
+        Args:
+            parent_uuid: Folder whose subfolders to list. Pass ``"root"`` for
+                the folders at the top of the library. Omit it to list every
+                folder.
+            limit: Page size, 1..100 (default server-side: 20).
+            offset: Pagination offset.
+
+        Returns:
+            :class:`FolderList` with ``folders``, ``total``, ``limit``,
+            ``offset``.
+        """
+        resp = await self._transport.request(
+            "GET",
+            FOLDERS_PATH,
+            params={"parent_uuid": parent_uuid, "limit": limit, "offset": offset},
+        )
+        return FolderList.model_validate(resp.json()["data"])
+
+    async def create(self, *, name: str, parent_uuid: Optional[str] = None) -> Folder:
+        """Create a folder, at the top of the library or inside another one.
+
+        A name has to be unique among the folders beside it, whatever the
+        capitalisation, so the same call can safely be made twice.
+
+        Args:
+            name: The folder's name.
+            parent_uuid: Folder to create this one in. Omit it to create the
+                folder at the top of the library.
+
+        Returns:
+            The new :class:`Folder`.
+
+        Raises:
+            ValueError: If ``name`` is blank.
+            NotFoundError: If ``parent_uuid`` does not exist.
+        """
+        if not name.strip():
+            raise ValueError("name cannot be blank")
+        body: dict[str, Any] = {"name": name}
+        if parent_uuid is not None:
+            body["parent_uuid"] = parent_uuid
+        resp = await self._transport.request("POST", FOLDERS_PATH, json=body)
+        return Folder.model_validate(resp.json()["data"])
+
+    async def get(self, uuid: str) -> FolderDetail:
+        """Get one folder, the trail above it, and what it holds at any depth.
+
+        The ``total_`` counts are exactly what a recursive delete would remove,
+        so this is the call to make before asking someone to confirm one.
+
+        Raises:
+            NotFoundError: If the folder does not exist.
+        """
+        resp = await self._transport.request("GET", self._path(uuid))
+        return FolderDetail.model_validate(resp.json()["data"])
+
+    async def update(
+        self,
+        uuid: str,
+        *,
+        name: Optional[str] = None,
+        parent_uuid: Union[Optional[str], _Unset] = UNSET,
+    ) -> FolderDetail:
+        """Rename a folder, move it, or both. Everything inside moves with it.
+
+        An argument you do not pass is left alone. ``parent_uuid=None`` moves
+        the folder to the top of the library, which is why it cannot double as
+        "leave it where it is".
+
+        Args:
+            uuid: Folder identifier.
+            name: A new name for the folder.
+            parent_uuid: Folder to move this one into, or ``None`` for the top
+                of the library.
+
+        Returns:
+            The updated :class:`FolderDetail`.
+
+        Raises:
+            NotFoundError: If the folder does not exist.
+            ValueError: If neither ``name`` nor ``parent_uuid`` is given.
+        """
+        body: dict[str, Any] = {}
+        if name is not None:
+            body["name"] = name
+        if not isinstance(parent_uuid, _Unset):
+            body["parent_uuid"] = parent_uuid
+        if not body:
+            raise ValueError("Pass name, parent_uuid, or both")
+        resp = await self._transport.request("PATCH", self._path(uuid), json=body)
+        return FolderDetail.model_validate(resp.json()["data"])
+
+    async def delete(self, uuid: str, *, recursive: bool = False) -> FolderDelete:
+        """Delete a folder and report what went.
+
+        An empty folder deletes on its own. A folder that holds anything needs
+        ``recursive=True``, which permanently deletes everything inside it,
+        mockups included; without it the call is refused and nothing is
+        touched. This cannot be undone. A call that is cut off part way can be
+        repeated and carries on from where it stopped.
+
+        Args:
+            uuid: Folder identifier.
+            recursive: Delete everything inside the folder as well.
+
+        Returns:
+            :class:`FolderDelete` with the counts that were removed.
+
+        Raises:
+            NotFoundError: If the folder does not exist.
+        """
+        resp = await self._transport.request(
+            "DELETE", self._path(uuid), params={"recursive": recursive}
+        )
+        return FolderDelete.model_validate(resp.json()["data"])
+
+    async def move(
+        self,
+        *,
+        target_folder_uuid: Optional[str] = None,
+        psd_mockup_uuids: Optional[_StrList] = None,
+        photo_mockup_uuids: Optional[_StrList] = None,
+        folder_uuids: Optional[_StrList] = None,
+    ) -> FolderMove:
+        """Move any mix of mockups and folders into one folder.
+
+        Everything named moves together or nothing does, so a half finished
+        move is not a state you have to handle. Moving never changes a mockup's
+        uuid, so renders, webhooks and integrations keep working against the
+        uuid they already hold. A folder moves with everything inside it.
+
+        Args:
+            target_folder_uuid: Folder everything listed moves into. Omit it,
+                or pass ``None``, to move the selection to the top of the
+                library.
+            psd_mockup_uuids: PSD mockups to move, up to 500.
+            photo_mockup_uuids: Photo mockups to move, up to 500.
+            folder_uuids: Folders to move, with everything inside them, up to
+                500.
+
+        Returns:
+            :class:`FolderMove` with the counts that moved.
+
+        Raises:
+            ValueError: If nothing was named, or a list is over 500 long.
+            NotFoundError: If the target or one of the items does not exist.
+        """
+        psd = list(psd_mockup_uuids or [])
+        photo = list(photo_mockup_uuids or [])
+        folders = list(folder_uuids or [])
+        # The API answers 422 for both of these; say so without spending a call.
+        if not psd and not photo and not folders:
+            raise ValueError(
+                "Name at least one mockup or folder to move in psd_mockup_uuids, "
+                "photo_mockup_uuids or folder_uuids"
+            )
+        for label, items in (
+            ("psd_mockup_uuids", psd),
+            ("photo_mockup_uuids", photo),
+            ("folder_uuids", folders),
+        ):
+            if len(items) > FOLDER_MOVE_MAX:
+                raise ValueError(f"{label} takes at most {FOLDER_MOVE_MAX} ids")
+        resp = await self._transport.request(
+            "POST",
+            f"{FOLDERS_PATH}/move",
+            json={
+                "target_folder_uuid": target_folder_uuid,
+                "psd_mockup_uuids": psd,
+                "photo_mockup_uuids": photo,
+                "folder_uuids": folders,
+            },
+        )
+        return FolderMove.model_validate(resp.json()["data"])
+
+
 class AsyncSudoMock:
     """Asynchronous client for the SudoMock API.
 
@@ -1248,6 +1504,7 @@ class AsyncSudoMock:
         self.jobs = _AsyncJobsResource(self._transport)
         self.psd = _AsyncPsdResource(self._transport)
         self.photo_mockups = _AsyncPhotoMockupsResource(self._transport)
+        self.folders = _AsyncFoldersResource(self._transport)
         self.images = _AsyncImagesResource(self._transport)
         self.account = _AsyncAccountResource(self._transport)
         self.studio = _AsyncStudioResource(self._transport)

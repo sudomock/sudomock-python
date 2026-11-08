@@ -47,12 +47,37 @@ DEFAULT_MAX_RETRIES = 3
 # Endpoints the current accessors (``photo_mockups`` / ``psd_mockups``) call.
 PHOTO_MOCKUPS_PATH = "/api/v1/photo-mockups"
 PSD_MOCKUPS_PATH = "/api/v1/psd-mockups"
+FOLDERS_PATH = "/api/v1/folders"
+# Ids one move call takes per list, as the API documents it.
+FOLDER_MOVE_MAX = 500
 
 # Endpoints the earlier accessors (``ai`` / ``mockups``) have always called and
 # keep calling. Code written against those names was never rewritten, so the
 # request it produces must not change either. Both remain served by the API.
 EARLIER_PHOTO_MOCKUPS_PATH = "/api/v1/sudoai/2d-mockups"
 EARLIER_PSD_MOCKUPS_PATH = "/api/v1/mockups"
+
+
+class _Unset:
+    """Marker for a field the caller never wrote.
+
+    ``None`` already means something on the folder and mockup patch calls: it
+    moves the item to the top of the library. "Left alone" and "moved to the
+    top" are therefore two different requests, and a default of ``None`` could
+    not tell them apart. Not exported: a caller expresses "leave it alone" by
+    not passing the argument at all.
+    """
+
+    __slots__ = ()
+
+    def __repr__(self) -> str:  # pragma: no cover - debugging aid
+        return "UNSET"
+
+    def __bool__(self) -> bool:
+        return False
+
+
+UNSET = _Unset()
 
 
 # ---------------------------------------------------------------------------

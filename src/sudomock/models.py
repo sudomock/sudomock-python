@@ -336,6 +336,8 @@ class Mockup(_Base):
     thumbnail: Optional[str] = None
     thumbnail_url: Optional[str] = None
     created_at: Optional[datetime] = None
+    # The folder this mockup is in. ``None`` means the top of the library.
+    folder_uuid: Optional[str] = None
 
 
 class MockupList(_Base):
@@ -498,6 +500,9 @@ class PhotoMockup(_Outcome):
     mockup_id: str
     name: Optional[str] = None
     status: Optional[str] = None
+    # The folder this mockup is in. ``None`` means the top of the library. The
+    # field is declared because this model drops anything it does not name.
+    folder_uuid: Optional[str] = None
     customizable: bool
     thumbnail_url: Optional[str] = None
     watermarked_source_url: Optional[str] = None
@@ -509,6 +514,66 @@ class PhotoMockup(_Outcome):
     version: Optional[int] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+
+
+class Folder(_Outcome):
+    """One folder of the mockup library, and how much it holds directly."""
+
+    uuid: str
+    name: str
+    # The folder this one sits in. ``None`` means the top of the library.
+    parent_uuid: Optional[str] = None
+    folder_count: int = 0
+    psd_mockup_count: int = 0
+    photo_mockup_count: int = 0
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class FolderPathEntry(_Outcome):
+    """One step on the trail from the top of the library down to a folder."""
+
+    uuid: str
+    name: str
+
+
+class FolderDetail(Folder):
+    """One folder, the trail above it, and what it holds at any depth.
+
+    The ``total_`` counts are exactly what a recursive delete would remove.
+    """
+
+    path: list[FolderPathEntry] = Field(default_factory=list)
+    total_folder_count: int = 0
+    total_psd_mockup_count: int = 0
+    total_photo_mockup_count: int = 0
+
+
+class FolderList(_Outcome):
+    """A page of folders, by name."""
+
+    folders: list[Folder] = Field(default_factory=list)
+    total: int
+    limit: int
+    offset: int
+
+
+class FolderDelete(_Outcome):
+    """What one folder delete removed."""
+
+    deleted: str
+    deleted_folders: int = 0
+    deleted_psd_mockups: int = 0
+    deleted_photo_mockups: int = 0
+
+
+class FolderMove(_Outcome):
+    """What one move moved."""
+
+    target_folder_uuid: Optional[str] = None
+    moved_psd_mockups: int = 0
+    moved_photo_mockups: int = 0
+    moved_folders: int = 0
 
 
 class PhotoMockupList(_Outcome):
