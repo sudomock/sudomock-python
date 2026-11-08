@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-11-08
+
+### Added
+
+- `client.folders` (and `client.folders` on the async client) keeps a large
+  mockup library in a tree. PSD mockups and photo mockups share that tree, and
+  every mockup sits in exactly one folder or at the top of the library.
+  `list(parent_uuid=, limit=, offset=)` pages the folders by name, where
+  `parent_uuid` is a folder uuid or `"root"`; `create(name=, parent_uuid=)`
+  adds one; `get(uuid)` returns the trail of folders above it (`path`) and the
+  `total_` counts a recursive delete would remove;
+  `update(uuid, name=, parent_uuid=)` renames or moves it;
+  `delete(uuid, recursive=)` reports what went; and
+  `move(target_folder_uuid=, psd_mockup_uuids=, photo_mockup_uuids=, folder_uuids=)`
+  moves any mix of mockups and folders in one call. Every folder call is free.
+- `Folder`, `FolderPathEntry`, `FolderDetail`, `FolderList`, `FolderDelete` and
+  `FolderMove` are exported from the package root.
+- `client.psd_mockups.list()` and `client.photo_mockups.list()` take
+  `folder_uuid`: a folder uuid for the mockups directly in it, or `"root"` for
+  the ones at the top of the library. A call without it returns every mockup,
+  as it did before.
+- `Mockup` and `PhotoMockup` carry `folder_uuid`, which is `None` at the top of
+  the library.
+- `client.psd.upload()` and `client.photo_mockups.create()` take `folder_uuid`,
+  so a new template lands where it belongs without a second call.
+
+### Changed
+
+- `client.psd_mockups.update()` takes `name` as an optional keyword and adds
+  `folder_uuid`, which moves the mockup. Code that called
+  `update(uuid, name="...")` is unaffected.
+- An argument the caller does not pass is left alone on both patch calls, while
+  `folder_uuid=None` and `parent_uuid=None` move the item to the top of the
+  library. `None` could not mean both, so the two patch arguments default to a
+  module-private marker instead. It is not exported: "leave it alone" is
+  expressed by not passing the argument. An update that would change nothing
+  raises `ValueError` rather than sending an empty request.
+
 ## [0.18.3] - 2026-11-06
 
 ### Added

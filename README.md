@@ -366,6 +366,58 @@ job = client.psd.upload(url="https://example.com/template.psd", is_async=True)
 mockup = client.jobs.wait(job.job_id)
 ```
 
+## Folders
+
+Folders keep a large library in a tree. PSD mockups and photo mockups share
+that tree, every mockup sits in exactly one folder or at the top of the
+library, and folders nest. Moving never changes a mockup's uuid, so renders,
+webhooks and integrations keep working against the uuid they already hold.
+Every call here is **free** (zero credits).
+
+```python
+# "root" lists the folders at the top of the library, a uuid lists the ones
+# inside that folder, and omitting it lists every folder you have
+page = client.folders.list(parent_uuid="root")
+
+folder = client.folders.create(name="Frames")
+child = client.folders.create(name="8x10", parent_uuid=folder.uuid)
+
+# The trail above a folder, and what it holds at any depth
+detail = client.folders.get(folder.uuid)
+print(detail.path, detail.total_psd_mockup_count)
+
+# Rename, move, or both. parent_uuid=None is the top of the library, and an
+# argument you do not pass is left alone
+client.folders.update(child.uuid, name="Frames 8x10")
+client.folders.update(child.uuid, parent_uuid=None)
+
+# Any mix of mockups and folders, in one call. All of it moves or none does
+client.folders.move(
+    target_folder_uuid=folder.uuid,
+    psd_mockup_uuids=["mockup-uuid"],
+)
+
+# An empty folder deletes on its own. A full one needs recursive=True, which
+# also deletes the mockups inside it and cannot be undone
+gone = client.folders.delete(folder.uuid, recursive=True)
+print(gone.deleted_folders, gone.deleted_psd_mockups)
+```
+
+A name has to be unique among the folders beside it, whatever the
+capitalisation, so the same `create` call can safely be made twice. Read the
+folder first to tell someone what a recursive delete would remove: the
+`total_` counts on `get` are exactly those numbers.
+
+Both mockup lists take `folder_uuid`, and both create calls take it too:
+
+```python
+in_folder = client.psd_mockups.list(folder_uuid=folder.uuid)
+at_top = client.photo_mockups.list(folder_uuid="root")
+
+client.psd.upload(url="https://example.com/t.psd", folder_uuid=folder.uuid)
+client.psd_mockups.update("mockup-uuid", folder_uuid=folder.uuid)
+```
+
 ## Webhooks
 
 Manage outbound webhook endpoints (authenticated with your `x-api-key`) and
@@ -573,10 +625,10 @@ client = SudoMock(
 
 | Method | Description |
 |--------|-------------|
-| `client.psd_mockups.list(limit=, offset=, name=, created_after=, created_before=, sort=, order=)` | List mockup templates (filter by `name`) |
+| `client.psd_mockups.list(limit=, offset=, name=, created_after=, created_before=, sort=, order=, folder_uuid=)` | List mockup templates (filter by `name`, or by `folder_uuid`, a folder uuid or `"root"`) |
 | `client.psd_mockups.get(uuid)` | Get mockup details |
 | `client.psd_mockups.layers(uuid)` | List every layer, nested as in Photoshop's Layers panel, with the UUIDs `hidden_layers` takes |
-| `client.psd_mockups.update(uuid, name=)` | Rename a mockup |
+| `client.psd_mockups.update(uuid, name=, folder_uuid=)` | Rename a mockup, or move it to another folder (`folder_uuid=None` is the top of the library) |
 | `client.psd_mockups.delete(uuid)` | Delete a mockup |
 
 > Bulk delete (`DELETE /mockups/all`) is dashboard-only (Bearer/JWT auth) and is intentionally not exposed in this api-key SDK.
@@ -600,19 +652,30 @@ client = SudoMock(
 
 | Method | Description |
 |--------|-------------|
-| `client.psd.upload(url=, name=None, is_async=False)` | Upload a PSD by URL (free; sync `Mockup` or `JobAccepted`) |
+| `client.psd.upload(url=, name=None, folder_uuid=None, is_async=False)` | Upload a PSD by URL (free; sync `Mockup` or `JobAccepted`) |
 
 ### Photo Mockups
 
 | Method | Description |
 |--------|-------------|
-| `client.photo_mockups.create(source_url=, source_base64=, name=, print_areas=, is_async=False, idempotency_key=)` | Create a photo mockup (25 credits; sync `PhotoMockup` by default, or `JobAccepted` when `is_async=True`) |
+| `client.photo_mockups.create(source_url=, source_base64=, name=, print_areas=, folder_uuid=, is_async=False, idempotency_key=)` | Create a photo mockup (25 credits; sync `PhotoMockup` by default, or `JobAccepted` when `is_async=True`) |
 | `client.photo_mockups.wait_for_2d_mockup(job_id, poll_interval=2.0, timeout=180.0)` | Wait for an `is_async=True` creation and return the full photo mockup (accepts a job of kind `2d_create` or `photo_mockup_create`) |
 | `client.photo_mockups.update_2d_print_areas(mockup_id, print_areas)` | Replace a photo mockup's print areas (free); an area with `print_area_id` keeps that id |
 | `client.photo_mockups.render(mockup_uuid=, print_areas=, export_options=, is_async=False)` | Render artwork onto a photo mockup (5 credits; sync `PhotoMockupRender` with `render_uuid` and `warnings` by default, or `JobAccepted` when `is_async=True`) |
-| `client.photo_mockups.list(limit=, offset=, customizable_only=)` | List your photo mockups; set `customizable_only=True` for shopper-ready items |
+| `client.photo_mockups.list(limit=, offset=, customizable_only=, folder_uuid=)` | List your photo mockups; set `customizable_only=True` for shopper-ready items, or `folder_uuid` for one folder |
 | `client.photo_mockups.get(mockup_id)` | Get a photo mockup |
 | `client.photo_mockups.delete(mockup_id)` | Delete a photo mockup |
+
+### Folders
+
+| Method | Description |
+|--------|-------------|
+| `client.folders.list(parent_uuid=, limit=, offset=)` | List folders by name; `parent_uuid` takes a folder uuid or `"root"` (free) |
+| `client.folders.create(name=, parent_uuid=)` | Create a folder (free) |
+| `client.folders.get(uuid)` | Get a folder with `path` and the `total_` counts a recursive delete would remove (free) |
+| `client.folders.update(uuid, name=, parent_uuid=)` | Rename or move a folder; `parent_uuid=None` is the top of the library (free) |
+| `client.folders.delete(uuid, recursive=False)` | Delete a folder; `recursive=True` also deletes everything inside it and cannot be undone (free) |
+| `client.folders.move(target_folder_uuid=, psd_mockup_uuids=, photo_mockup_uuids=, folder_uuids=)` | Move any mix of mockups and folders in one call, up to 500 ids per list (free) |
 
 ### Images
 
