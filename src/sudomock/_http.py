@@ -13,6 +13,7 @@ Provides :class:`SyncTransport` and :class:`AsyncTransport` that wrap
 from __future__ import annotations
 
 from typing import Any, Optional
+from urllib.parse import quote
 
 import httpx
 from tenacity import (
@@ -56,6 +57,18 @@ FOLDER_MOVE_MAX = 500
 # request it produces must not change either. Both remain served by the API.
 EARLIER_PHOTO_MOCKUPS_PATH = "/api/v1/sudoai/2d-mockups"
 EARLIER_PSD_MOCKUPS_PATH = "/api/v1/mockups"
+
+
+def encode_id(value: str) -> str:
+    """One id, safe to drop into a request path.
+
+    An id often arrives from an application's own end user. Unencoded, a ``?``
+    or a ``#`` in it escapes its path segment and reaches the query string,
+    where it can add a parameter the caller never asked for. Encoding keeps it
+    one segment, so a bad id answers 404 instead of changing what the request
+    does.
+    """
+    return quote(value, safe="")
 
 
 class _Unset:

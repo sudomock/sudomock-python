@@ -36,7 +36,6 @@ import os
 import time
 import warnings
 from typing import Any, Literal, Optional, Union
-from urllib.parse import quote
 from uuid import uuid4
 
 from ._http import (
@@ -53,6 +52,7 @@ from ._http import (
     UNSET,
     AsyncTransport,
     _Unset,
+    encode_id,
 )
 from ._public_contract import public_2d_render_targets, seam_tile_body
 from .exceptions import JobFailedError, JobTimeoutError, SudoMockError
@@ -164,7 +164,7 @@ class _AsyncPsdMockupsResource:
         Raises:
             NotFoundError: If the mockup does not exist.
         """
-        resp = await self._transport.request("GET", f"{self._base}/{uuid}")
+        resp = await self._transport.request("GET", f"{self._base}/{encode_id(uuid)}")
         payload = resp.json()
         return Mockup.model_validate({**payload["data"], "warnings": payload.get("warnings") or []})
 
@@ -188,7 +188,7 @@ class _AsyncPsdMockupsResource:
         Raises:
             NotFoundError: If the mockup does not exist.
         """
-        resp = await self._transport.request("GET", f"{self._base}/{uuid}/layers")
+        resp = await self._transport.request("GET", f"{self._base}/{encode_id(uuid)}/layers")
         return MockupLayers.model_validate(resp.json()["data"])
 
     async def update(
@@ -226,7 +226,7 @@ class _AsyncPsdMockupsResource:
             body["folder_uuid"] = folder_uuid
         if not body:
             raise ValueError("Pass name, folder_uuid, or both")
-        resp = await self._transport.request("PATCH", f"{self._base}/{uuid}", json=body)
+        resp = await self._transport.request("PATCH", f"{self._base}/{encode_id(uuid)}", json=body)
         payload = resp.json()
         return Mockup.model_validate({**payload["data"], "warnings": payload.get("warnings") or []})
 
@@ -239,7 +239,7 @@ class _AsyncPsdMockupsResource:
         Raises:
             NotFoundError: If the mockup does not exist.
         """
-        await self._transport.request("DELETE", f"{self._base}/{uuid}")
+        await self._transport.request("DELETE", f"{self._base}/{encode_id(uuid)}")
 
 
 class _AsyncRendersResource:
@@ -458,7 +458,7 @@ class _AsyncJobsResource:
         Raises:
             NotFoundError: If the job does not exist or is not owned by you.
         """
-        resp = await self._transport.request("GET", f"/api/v1/jobs/{job_id}")
+        resp = await self._transport.request("GET", f"/api/v1/jobs/{encode_id(job_id)}")
         # The job-poll endpoint returns a BARE body {job_id, status, ...} —
         # no {success, data} envelope.
         return Job.model_validate(resp.json())
@@ -622,7 +622,7 @@ class _AsyncWebhookEndpointsResource:
 
     async def get(self, uuid: str) -> WebhookEndpoint:
         """Get a single webhook endpoint by UUID."""
-        resp = await self._transport.request("GET", f"/api/v1/webhook-endpoints/{uuid}")
+        resp = await self._transport.request("GET", f"/api/v1/webhook-endpoints/{encode_id(uuid)}")
         # BARE endpoint object (no {success, data} envelope).
         return WebhookEndpoint.model_validate(resp.json())
 
@@ -656,19 +656,19 @@ class _AsyncWebhookEndpointsResource:
         if event_naming is not None:
             body["event_naming"] = event_naming
         resp = await self._transport.request(
-            "PATCH", f"/api/v1/webhook-endpoints/{uuid}", json=body
+            "PATCH", f"/api/v1/webhook-endpoints/{encode_id(uuid)}", json=body
         )
         # BARE endpoint object (no {success, data} envelope).
         return WebhookEndpoint.model_validate(resp.json())
 
     async def delete(self, uuid: str) -> None:
         """Delete a webhook endpoint."""
-        await self._transport.request("DELETE", f"/api/v1/webhook-endpoints/{uuid}")
+        await self._transport.request("DELETE", f"/api/v1/webhook-endpoints/{encode_id(uuid)}")
 
     async def rotate_secret(self, uuid: str) -> WebhookSecret:
         """Rotate the signing secret for an endpoint."""
         resp = await self._transport.request(
-            "POST", f"/api/v1/webhook-endpoints/{uuid}/rotate-secret"
+            "POST", f"/api/v1/webhook-endpoints/{encode_id(uuid)}/rotate-secret"
         )
         # BARE endpoint object carrying the unmasked `secret` (no {success, data}
         # envelope); WebhookSecret picks the secret, extra fields are accepted.
@@ -676,11 +676,13 @@ class _AsyncWebhookEndpointsResource:
 
     async def test(self, uuid: str) -> None:
         """Send a synthetic test delivery to an endpoint."""
-        await self._transport.request("POST", f"/api/v1/webhook-endpoints/{uuid}/test")
+        await self._transport.request("POST", f"/api/v1/webhook-endpoints/{encode_id(uuid)}/test")
 
     async def deliveries(self, uuid: str) -> WebhookDeliveryList:
         """List recent delivery attempts for an endpoint."""
-        resp = await self._transport.request("GET", f"/api/v1/webhook-endpoints/{uuid}/deliveries")
+        resp = await self._transport.request(
+            "GET", f"/api/v1/webhook-endpoints/{encode_id(uuid)}/deliveries"
+        )
         # The API returns a BARE JSON array of delivery rows — no {success, data}
         # envelope. Wrap it into the convenience list model.
         return WebhookDeliveryList(deliveries=resp.json())
@@ -689,14 +691,14 @@ class _AsyncWebhookEndpointsResource:
         """Re-attempt a previously failed delivery."""
         await self._transport.request(
             "POST",
-            f"/api/v1/webhook-endpoints/{uuid}/deliveries/{delivery_id}/replay",
+            f"/api/v1/webhook-endpoints/{encode_id(uuid)}/deliveries/{encode_id(delivery_id)}/replay",
         )
 
     async def replay_failed(self, uuid: str) -> None:
         """Re-attempt ALL failed/dead deliveries for an endpoint."""
         await self._transport.request(
             "POST",
-            f"/api/v1/webhook-endpoints/{uuid}/deliveries/replay-failed",
+            f"/api/v1/webhook-endpoints/{encode_id(uuid)}/deliveries/replay-failed",
         )
 
 
@@ -834,7 +836,7 @@ class _AsyncPhotoMockupsResource:
         """
         resp = await self._transport.request(
             "PUT",
-            f"{self._base}/{mockup_id}/print-areas",
+            f"{self._base}/{encode_id(mockup_id)}/print-areas",
             json={"print_areas": print_areas},
         )
         return PhotoMockupPrintAreasUpdate.model_validate(resp.json()["data"])
@@ -913,7 +915,7 @@ class _AsyncPhotoMockupsResource:
 
         resp = await self._transport.request(
             "POST",
-            f"{self._base}/{mockup_uuid}/render",
+            f"{self._base}/{encode_id(mockup_uuid)}/render",
             json=body,
             timeout=self._transport._render_timeout,
         )
@@ -960,7 +962,7 @@ class _AsyncPhotoMockupsResource:
         Raises:
             NotFoundError: If the photo mockup does not exist.
         """
-        resp = await self._transport.request("GET", f"{self._base}/{mockup_id}")
+        resp = await self._transport.request("GET", f"{self._base}/{encode_id(mockup_id)}")
         return PhotoMockup.model_validate(resp.json()["data"])
 
     async def delete(self, mockup_id: str) -> None:
@@ -969,7 +971,7 @@ class _AsyncPhotoMockupsResource:
         Raises:
             NotFoundError: If the photo mockup does not exist.
         """
-        await self._transport.request("DELETE", f"{self._base}/{mockup_id}")
+        await self._transport.request("DELETE", f"{self._base}/{encode_id(mockup_id)}")
 
 
 class _AsyncImagesResource:
@@ -1262,7 +1264,7 @@ class _AsyncFoldersResource:
         string, and a caller that never asked for ``recursive`` could still be
         made to delete a folder's whole contents.
         """
-        return f"{FOLDERS_PATH}/{quote(uuid, safe='')}"
+        return f"{FOLDERS_PATH}/{encode_id(uuid)}"
 
     async def list(
         self,
