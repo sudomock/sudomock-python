@@ -529,12 +529,12 @@ class _PsdResource:
         folder_uuid: Optional[str] = None,
         is_async: bool = False,
     ) -> Union[Mockup, JobAccepted]:
-        """Upload a PSD by URL and parse it into a mockup template.
+        """Upload a PSD by URL and get back a reusable mockup template.
 
         PSD uploads are **free** (zero credits).
 
         Args:
-            url: Public URL of the ``.psd`` file to ingest.
+            url: Public URL of the ``.psd`` file to upload.
             name: Optional name for the resulting mockup.
             folder_uuid: Folder the new mockup goes into. Omit it to put the
                 mockup at the top of the library.

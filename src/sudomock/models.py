@@ -310,7 +310,7 @@ class ApiWarning(_Outcome):
 
 
 class Mockup(_Base):
-    """A mockup template parsed from a PSD file."""
+    """A reusable mockup template made from a PSD file."""
 
     uuid: str
     name: str
@@ -462,7 +462,7 @@ class FullSurface(_Outcome):
     """One printable product in the photo, or the main wall of a room photo,
     available as a render target.
 
-    ``label``: What was detected on this surface, such as "wall" or "pillow".
+    ``label``: What the surface is, such as "wall" or "pillow".
 
     There is no ``coverage`` here: the fixed ``coverage="full"`` that used to
     ride along named nothing a caller could act on while reading exactly like a

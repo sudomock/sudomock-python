@@ -137,8 +137,8 @@ default.
 whole target. The sizing answer (`coverage`, `fit`, or `width` and `height`) is
 one tile, and `position` with `offset_x` and `offset_y` sets where the grid
 starts. `tile_spacing` sets the gap between tiles, as on a PSD asset below.
-Each entry in `mockup.surfaces` carries a `label`, what was detected there,
-such as `pillow` or `wall`, so you can tell surfaces apart before you pick one.
+Each entry in `mockup.surfaces` carries a `label`, what the surface is, such
+as `pillow` or `wall`, so you can tell surfaces apart before you pick one.
 
 To move a print area and keep its id, pass that area's `print_area_id` to
 `client.photo_mockups.update_2d_print_areas` with its new `points`. An area
@@ -354,7 +354,7 @@ for warning in render.warnings:
 
 ## PSD Upload
 
-Upload a PSD by URL and parse it into a mockup template. PSD uploads are **free**
+Upload a PSD by URL and get back a reusable mockup template. PSD uploads are **free**
 (zero credits) and support `is_async`.
 
 ```python

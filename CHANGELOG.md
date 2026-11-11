@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Internal cleanup.
+- Wording in some field descriptions and README sections.
 - An error or advisory now carries the text the API sent. A fallback is used
   only when the API sent none, so a message is never empty or of the wrong
   type.
