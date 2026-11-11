@@ -7,11 +7,7 @@ from typing import Any, Literal, Optional, TypedDict
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from ._public_contract import (
-    is_implementation_key,
-    public_error_code,
-    public_error_text,
-)
+from ._public_contract import public_error_code, public_error_text
 
 # ---------------------------------------------------------------------------
 # Shared / base
@@ -19,20 +15,15 @@ from ._public_contract import (
 
 
 class _Base(BaseModel):
-    """Forward-compatible base for established customer-facing resources."""
+    """Forward-compatible base for established customer-facing resources.
+
+    Extra keys are kept: the API documents fields this release does not declare
+    yet (``quad``, ``print_area_presets``, ``collections`` and others), and a
+    caller reaches them without waiting for an SDK release. The outcome
+    surfaces that must carry only the documented contract use ``_Outcome``.
+    """
 
     model_config = ConfigDict(extra="allow", populate_by_name=True)
-
-    @model_validator(mode="before")
-    @classmethod
-    def hide_implementation_fields(cls, value: Any) -> Any:
-        if not isinstance(value, dict) or cls.model_config.get("extra") == "forbid":
-            return value
-        return {
-            key: item
-            for key, item in value.items()
-            if key in cls.model_fields or not is_implementation_key(key)
-        }
 
 
 class _Outcome(_Base):
@@ -305,7 +296,8 @@ class ApiWarning(_Outcome):
     message: str
 
     @model_validator(mode="after")
-    def hide_implementation_details(self) -> ApiWarning:
+    def fill_missing_advisory_text(self) -> ApiWarning:
+        """An advisory the API sent without a code or a message still reads."""
         self.code = public_error_code(self.code) or "RENDER_WARNING"
         self.message = (
             public_error_text(
@@ -787,7 +779,8 @@ class Job(_Outcome):
 
     @model_validator(mode="before")
     @classmethod
-    def outcome_only_error(cls, value: Any) -> Any:
+    def flatten_error(cls, value: Any) -> Any:
+        """Lift the nested error object into the flat public fields."""
         if not isinstance(value, dict):
             return value
         public = dict(value)
@@ -956,7 +949,8 @@ class WebhookDelivery(_Outcome):
     updated_at: Optional[datetime] = None
 
     @model_validator(mode="after")
-    def hide_delivery_diagnostics(self) -> WebhookDelivery:
+    def fill_missing_delivery_error(self) -> WebhookDelivery:
+        """A failed delivery the API sent without a reason still reads."""
         if self.last_error is not None:
             self.last_error = public_error_text(
                 self.last_error,

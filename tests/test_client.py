@@ -973,10 +973,17 @@ class TestErrorHandling:
             with pytest.raises(ServerError) as exc_info:
                 client.psd_mockups.list()
             assert exc_info.value.body is not None
-            assert (
-                exc_info.value.body["detail"]
-                == "SudoMock could not complete the request. Retry shortly."
-            )
+            assert exc_info.value.body["detail"] == "Internal server error"
+
+    def test_error_without_a_message_reads(self, mock_api: respx.MockRouter) -> None:
+        """A 5xx with no usable detail still raises something a user can read."""
+        mock_api.get("/api/v1/psd-mockups").mock(
+            return_value=httpx.Response(500, json={"detail": {"nested": "object"}})
+        )
+        with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
+            with pytest.raises(ServerError) as exc_info:
+                client.psd_mockups.list()
+            assert str(exc_info.value).startswith("SudoMock could not complete the request.")
 
 
 # ---------------------------------------------------------------------------

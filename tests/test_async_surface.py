@@ -121,7 +121,7 @@ class TestJobs:
         with SudoMock(api_key=TEST_API_KEY, base_url=TEST_BASE_URL) as client:
             job = client.jobs.get("job-1")
         assert job.failed
-        assert job.error == "Processing failed. Retry or contact support with the job ID."
+        assert job.error == "The render could not be completed."
         with pytest.raises(ValueError, match="no result_url"):
             _ = job.url
 

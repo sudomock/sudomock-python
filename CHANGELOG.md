@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-11-11
+
+### Changed
+
+- Internal cleanup.
+- An error or advisory now carries the text the API sent. A fallback is used
+  only when the API sent none, so a message is never empty or of the wrong
+  type.
+
 ## [0.19.1] - 2026-11-09
 
 ### Changed

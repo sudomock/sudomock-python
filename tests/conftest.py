@@ -429,8 +429,8 @@ MOCK_WEBHOOK_ENDPOINT = {
 
 # All webhook-endpoint responses are BARE (no {success, data} envelope):
 # create/get/update/rotate return a bare endpoint object; list/deliveries return
-# bare JSON arrays. These fixtures match the real BE (FastAPI response_model
-# serialization, not the legacy {success, data} wrapper).
+# bare JSON arrays. These fixtures match the live API: a bare endpoint object,
+# not the legacy {success, data} wrapper.
 MOCK_WEBHOOK_CREATE_RESPONSE = MOCK_WEBHOOK_ENDPOINT
 
 MOCK_WEBHOOK_LIST_RESPONSE = [MOCK_WEBHOOK_ENDPOINT]

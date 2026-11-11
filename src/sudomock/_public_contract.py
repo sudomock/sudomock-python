@@ -2,25 +2,8 @@
 
 from __future__ import annotations
 
-import base64
 import math
-import re
 from typing import Any, Optional
-
-# The pattern is stored encoded because this package is PUBLIC on PyPI. Spelled
-# out, the list names an internal detail, so
-# the scrubber becomes the leak. Decoding at import keeps behaviour identical.
-_NON_PUBLIC_TEXT = re.compile(
-    base64.b64decode(
-        "_PATTERN_"
-    ).decode(),
-    re.IGNORECASE,
-)
-_PRIVATE_KEY = re.compile(
-    r"_PATTERN_"
-    r"",
-    re.IGNORECASE,
-)
 
 _TARGET_FIELDS = {
     "uuid",
@@ -114,22 +97,22 @@ def seam_tile_body(
 
 
 def public_error_text(value: Any, fallback: Optional[str] = None) -> Optional[str]:
-    """Return a safe public message, replacing implementation diagnostics."""
+    """Return the API's own message, or the fallback when it sent none.
+
+    The field is typed as a string but arrives from JSON, where it can be a
+    dict, a list or null. Anything that is not a non-empty string becomes the
+    fallback, so a caller never meets a message of the wrong type.
+    """
     if not isinstance(value, str) or not value:
         return fallback
-    return fallback if _NON_PUBLIC_TEXT.search(value) else value
+    return value
 
 
 def public_error_code(value: Any) -> Optional[str]:
-    """Return a stable public code without implementation identifiers."""
+    """Return the API's own error code, or None when it sent none."""
     if not isinstance(value, str) or not value:
         return None
-    return "PROCESSING_FAILED" if _NON_PUBLIC_TEXT.search(value) else value
-
-
-def is_implementation_key(value: str) -> bool:
-    """Identify undocumented implementation fields in response objects."""
-    return bool(_NON_PUBLIC_TEXT.search(value) or _PRIVATE_KEY.search(value))
+    return value
 
 
 def public_2d_render_targets(targets: list[dict[str, Any]]) -> list[dict[str, Any]]:

@@ -41,14 +41,22 @@ from sudomock.models import (
 
 
 class TestApiWarning:
-    def test_hides_implementation_diagnostics(self) -> None:
+    def test_keeps_the_advisory_the_api_sent(self) -> None:
         warning = ApiWarning(
-            code="ADVISORY_X",
-            message="Private model prompt failed for x_field_a.",
+            code="TILE_SEAM_VISIBLE",
+            message="The repeated tile shows a seam along its right edge.",
         )
 
         assert warning.model_dump() == {
-            "code": "PROCESSING_FAILED",
+            "code": "TILE_SEAM_VISIBLE",
+            "message": "The repeated tile shows a seam along its right edge.",
+        }
+
+    def test_fills_an_advisory_that_arrived_without_text(self) -> None:
+        warning = ApiWarning.model_validate({"code": "", "message": ""})
+
+        assert warning.model_dump() == {
+            "code": "RENDER_WARNING",
             "message": "The request completed with an advisory.",
         }
 
@@ -202,17 +210,22 @@ class TestSmartObject:
         assert so.size is not None
         assert so.size.width == 800
 
-    def test_preserves_customer_metadata_and_drops_engine_fields(self) -> None:
+    def test_keeps_a_field_this_release_does_not_declare(self) -> None:
+        """The API documents more smart object fields than this release names.
+
+        ``quad`` is one of them. Keeping the extras is what lets a caller read
+        a newly documented field without waiting for an SDK release.
+        """
         so = SmartObject.model_validate(
             {
                 "uuid": "so-1",
                 "quad": [[0, 0], [1, 0], [1, 1], [0, 1]],
-                "x_field_a": "private-surface",
+                "x_field_a": "value-a",
             }
         )
 
         assert so.quad == [[0, 0], [1, 0], [1, 1], [0, 1]]
-        assert "x_field_a" not in so.model_dump()
+        assert so.model_dump()["x_field_a"] == "value-a"
 
 
 class TestMockup:
@@ -227,18 +240,32 @@ class TestMockup:
         assert m.name == "T-Shirt"
         assert len(m.smart_objects) == 1
 
-    def test_drops_top_level_engine_fields(self) -> None:
+    def test_keeps_top_level_fields_this_release_does_not_declare(self) -> None:
         mockup = Mockup.model_validate(
             {
                 "uuid": "m-1",
                 "name": "T-Shirt",
-                "model": "value-g",
-                "private_storage_key": "private/path",
+                "x_field_a": "value-a",
+                "x_field_b": "value-b",
             }
         )
 
-        assert "model" not in mockup.model_dump()
-        assert "private_storage_key" not in mockup.model_dump()
+        dumped = mockup.model_dump()
+        assert dumped["x_field_a"] == "value-a"
+        assert dumped["x_field_b"] == "value-b"
+
+    def test_an_outcome_surface_carries_only_the_documented_contract(self) -> None:
+        """``_Outcome`` is the strict half: a job, a warning, a studio receipt."""
+        job = Job.model_validate(
+            {
+                "job_id": "job-1",
+                "kind": "render",
+                "status": "succeeded",
+                "x_field_a": "value-a",
+            }
+        )
+
+        assert "x_field_a" not in job.model_dump()
 
     def test_empty_smart_objects(self) -> None:
         m = Mockup(uuid="m-1", name="Empty")
