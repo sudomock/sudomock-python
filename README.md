@@ -2,7 +2,7 @@
 
 Official Python client for the [SudoMock](https://sudomock.com) Mockup Generator API.
 
-Start from a free library of 6,870 ready-made mockups, or bring your own Photoshop file or product photo, and get the finished image back, all from your Python code.
+Start from a free library of 6,800+ ready-made mockups, or bring your own Photoshop file or product photo, and get the finished image back, all from your Python code.
 
 [![PyPI](https://img.shields.io/pypi/v/sudomock)](https://pypi.org/project/sudomock/)
 [![Python](https://img.shields.io/pypi/pyversions/sudomock)](https://pypi.org/project/sudomock/)
