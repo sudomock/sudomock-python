@@ -49,6 +49,9 @@ DEFAULT_MAX_RETRIES = 3
 PHOTO_MOCKUPS_PATH = "/api/v1/photo-mockups"
 PSD_MOCKUPS_PATH = "/api/v1/psd-mockups"
 FOLDERS_PATH = "/api/v1/folders"
+# SudoMock's own catalogue of product scenes. Free to read, and not the
+# account's own library: that is FOLDERS_PATH and the mockup families.
+READY_MADE_PATH = "/api/v1/library/templates"
 # Ids one move call takes per list, as the API documents it.
 FOLDER_MOVE_MAX = 500
 

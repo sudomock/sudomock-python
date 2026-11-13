@@ -995,3 +995,66 @@ class PlanList(_Base):
     """List of available plans (the API returns ``{plans: [...]}``)."""
 
     plans: list[Plan] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Ready-made mockups (SudoMock's own catalogue, free to read)
+# ---------------------------------------------------------------------------
+
+
+class ReadyMadeMockup(_Outcome):
+    """One view of a product scene, with the address to render from.
+
+    Pass ``source_url`` as ``source_url`` to
+    :meth:`SudoMock.photo_mockups.create` and the view becomes a reusable
+    mockup on your account.
+    """
+
+    name: str
+    view: str
+    source_url: str
+
+
+class ReadyMadeTemplate(_Base):
+    """One product scene, with every view it holds.
+
+    A mockup is one view of a scene; a template is the set of views of that
+    scene. A search answers with templates, and each one carries its views, so
+    one call is enough to pick what to render.
+    """
+
+    slug: str
+    title: str
+    description: Optional[str] = None
+    category: str
+    subcategory: Optional[str] = None
+    product_type: Optional[str] = None
+    tags: list[str] = Field(default_factory=list)
+    is_featured: bool = False
+    mockup_count: int
+    mockups: list[ReadyMadeMockup] = Field(default_factory=list)
+
+
+class ReadyMadeTemplateDetail(ReadyMadeTemplate):
+    """One template read on its own, with its long-form copy and every facet."""
+
+    long_description: Optional[str] = None
+    features: list[str] = Field(default_factory=list)
+    visual_style: list[str] = Field(default_factory=list)
+    target_audience: list[str] = Field(default_factory=list)
+    compatible_platforms: list[str] = Field(default_factory=list)
+    industries: list[str] = Field(default_factory=list)
+    use_cases: list[str] = Field(default_factory=list)
+    seasons: list[str] = Field(default_factory=list)
+    published_at: Optional[datetime] = None
+
+
+class ReadyMadeTemplatePage(_Base):
+    """One page of :meth:`SudoMock.ready_made_mockups.search`."""
+
+    templates: list[ReadyMadeTemplate] = Field(default_factory=list)
+    total_templates: int
+    total_mockups: int
+    page: int
+    limit: int
+    pages: int

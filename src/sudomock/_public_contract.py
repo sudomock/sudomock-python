@@ -152,3 +152,35 @@ def public_2d_render_targets(targets: list[dict[str, Any]]) -> list[dict[str, An
             }
         )
     return normalized
+
+
+# ---------------------------------------------------------------------------
+# Ready-made catalogue search
+# ---------------------------------------------------------------------------
+
+# The filters the ready-made search publishes. A list filter travels as one
+# comma-separated value, which is what the API reads. Shared by the sync and
+# the async client so the two can never send a different query.
+_READY_MADE_LIST_FILTERS = ("tags", "platforms", "industries", "use_cases")
+
+
+def ready_made_query(**filters: Any) -> dict[str, Any]:
+    """Build the query of a ready-made search, leaving out what was not asked.
+
+    A filter the caller never passed is left out rather than sent empty, and so
+    is an empty list: an empty value would otherwise read as "match nothing".
+    """
+    query: dict[str, Any] = {}
+    for name, value in filters.items():
+        if value is None:
+            continue
+        if name in _READY_MADE_LIST_FILTERS:
+            items = [str(item) for item in value if str(item)]
+            if items:
+                query[name] = ",".join(items)
+            continue
+        if isinstance(value, bool):
+            query[name] = "true" if value else "false"
+            continue
+        query[name] = value
+    return query

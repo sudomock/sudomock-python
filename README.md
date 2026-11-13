@@ -2,7 +2,7 @@
 
 Official Python client for the [SudoMock](https://sudomock.com) Mockup Generator API.
 
-Generate photorealistic product mockups from PSD templates or photo mockups, all from your Python code.
+Start from a free library of 6,870 ready-made mockups, or bring your own Photoshop file or product photo, and get the finished image back, all from your Python code.
 
 [![PyPI](https://img.shields.io/pypi/v/sudomock)](https://pypi.org/project/sudomock/)
 [![Python](https://img.shields.io/pypi/pyversions/sudomock)](https://pypi.org/project/sudomock/)
@@ -109,6 +109,58 @@ async def main():
 
 asyncio.run(main())
 ```
+
+## Ready-made mockups
+
+SudoMock's free library of ready-made mockups is a catalogue of product scenes
+that needs no file of your own. Reading it is free, and every scene in it is
+free to start from. A **mockup** is one view of a scene (front, folded, flat
+lay, lifestyle, close-up) and a **template** is the set of views of that scene,
+so a search answers with templates and each one carries its views with the
+address to render from.
+
+This is SudoMock's catalogue, not your own account's mockups: those are
+`client.psd_mockups`, `client.photo_mockups` and `client.folders`.
+
+The four steps, in the order the
+[guide](https://sudomock.com/docs/guides/start-from-a-ready-made-template)
+uses them:
+
+```python
+# 1. Search the catalogue.
+page = client.ready_made_mockups.search(search="coffee mug", category="drinkware", limit=5)
+print(page.total_templates, "templates,", page.total_mockups, "views")
+
+# 2. Read one template for its long-form copy and every facet.
+template = client.ready_made_mockups.get_template(page.templates[0].slug)
+
+# 3. Hand the view you picked to photo mockup creation.
+view = template.mockups[0]
+mockup = client.photo_mockups.create(source_url=view.source_url)
+
+# 4. Render your own artwork onto it.
+render = client.photo_mockups.render(
+    mockup_uuid=mockup.mockup_id,
+    print_areas=[
+        {
+            "surface_uuid": mockup.surfaces[0].surface_uuid,
+            "artwork_url": "https://example.com/artwork.png",
+            "placement": {"coverage": 60},
+        }
+    ],
+)
+print(render.url)
+```
+
+Steps 1 and 2 cost nothing. Step 3 makes the view a reusable mockup on your
+account, and step 4 renders it; both are priced in
+[Pricing in one paragraph](#pricing-in-one-paragraph).
+
+`search()` takes `search` (free text over title and description), `category`,
+`subcategory`, `product_type`, `tags`, `platforms`, `industries`, `use_cases`,
+`is_featured`, `page`, `limit`, `sort_by` and `sort_order`. A list filter is
+sent as one comma-separated value, and a filter you leave out is not sent at
+all. `AsyncSudoMock` carries the same two methods.
 
 ## Photo mockups via API
 
@@ -632,6 +684,13 @@ client = SudoMock(
 | `client.psd_mockups.delete(uuid)` | Delete a mockup |
 
 > Bulk delete (`DELETE /mockups/all`) is dashboard-only (Bearer/JWT auth) and is intentionally not exposed in this api-key SDK.
+
+### Ready-made mockups
+
+| Method | Description |
+|--------|-------------|
+| `client.ready_made_mockups.search(search=, category=, subcategory=, product_type=, tags=, platforms=, industries=, use_cases=, is_featured=, page=, limit=, sort_by=, sort_order=)` | Search SudoMock's catalogue of product scenes, free to read (`ReadyMadeTemplatePage`) |
+| `client.ready_made_mockups.get_template(slug)` | Read one template with its long-form copy and every facet (`ReadyMadeTemplateDetail`) |
 
 ### Renders
 

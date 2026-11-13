@@ -33,12 +33,17 @@ from ._http import (
     FOLDERS_PATH,
     PHOTO_MOCKUPS_PATH,
     PSD_MOCKUPS_PATH,
+    READY_MADE_PATH,
     UNSET,
     SyncTransport,
     _Unset,
     encode_id,
 )
-from ._public_contract import public_2d_render_targets, seam_tile_body
+from ._public_contract import (
+    public_2d_render_targets,
+    ready_made_query,
+    seam_tile_body,
+)
 from .exceptions import JobFailedError, JobTimeoutError, SudoMockError
 from .models import (
     PHOTO_MOCKUP_CREATE_KINDS,
@@ -61,6 +66,8 @@ from .models import (
     PhotoMockupPrintAreasUpdate,
     PhotoMockupRender,
     PlanList,
+    ReadyMadeTemplateDetail,
+    ReadyMadeTemplatePage,
     Render,
     SeamCheck,
     StudioActionContext,
@@ -1512,6 +1519,106 @@ class _FoldersResource:
         return FolderMove.model_validate(resp.json()["data"])
 
 
+class _ReadyMadeMockupsResource:
+    """SudoMock's own catalogue of product scenes, free to read.
+
+    Nothing here needs a Photoshop file or a product photo of your own, and
+    every scene in it is free to start from. A mockup is one view of a scene
+    (front, folded, flat lay, lifestyle, close-up) and a template is the set of
+    views of that scene, so a search answers with templates and each one
+    carries its views with the address to render from.
+
+    This is not the account's own library: that is ``client.folders``,
+    ``client.psd_mockups`` and ``client.photo_mockups``.
+    """
+
+    def __init__(self, transport: SyncTransport) -> None:
+        self._transport = transport
+
+    def search(
+        self,
+        *,
+        search: Optional[str] = None,
+        category: Optional[str] = None,
+        subcategory: Optional[str] = None,
+        product_type: Optional[str] = None,
+        tags: Optional[list[str]] = None,
+        platforms: Optional[list[str]] = None,
+        industries: Optional[list[str]] = None,
+        use_cases: Optional[list[str]] = None,
+        is_featured: Optional[bool] = None,
+        page: Optional[int] = None,
+        limit: Optional[int] = None,
+        sort_by: Optional[Literal["published_at", "title"]] = None,
+        sort_order: Optional[Literal["asc", "desc"]] = None,
+    ) -> ReadyMadeTemplatePage:
+        """Search the catalogue, or list it when no filter is given.
+
+        Args:
+            search: Free text matched against a template's title and
+                description, so ``"coffee mug"`` or ``"oversized tee"`` both
+                work.
+            category: One top category: ``apparel``, ``home-living``,
+                ``accessories``, ``drinkware``, ``signage-advertising``,
+                ``print-paper``, ``packaging``, ``branding``.
+            subcategory: One subcategory, the middle level, such as
+                ``t-shirts``.
+            product_type: One product type, the narrowest level, such as
+                ``crewneck-short-sleeve``.
+            tags: Keep only templates carrying these tags.
+            platforms: Keep only templates marked for these storefronts or
+                automation tools, such as ``etsy`` or ``shopify``.
+            industries: Keep only templates marked for these industries.
+            use_cases: Keep only templates marked for these use cases.
+            is_featured: Keep only the templates SudoMock features, or only
+                the rest.
+            page: Which page to return, counting from 1.
+            limit: Templates per page, 1..100 (default server-side: 20).
+            sort_by: ``published_at`` (default) or ``title``.
+            sort_order: ``desc`` (default) or ``asc``.
+
+        Returns:
+            :class:`ReadyMadeTemplatePage` with ``templates``,
+            ``total_templates``, ``total_mockups``, ``page``, ``limit`` and
+            ``pages``.
+        """
+        resp = self._transport.request(
+            "GET",
+            READY_MADE_PATH,
+            params=ready_made_query(
+                search=search,
+                category=category,
+                subcategory=subcategory,
+                product_type=product_type,
+                tags=tags,
+                platforms=platforms,
+                industries=industries,
+                use_cases=use_cases,
+                is_featured=is_featured,
+                page=page,
+                limit=limit,
+                sort_by=sort_by,
+                sort_order=sort_order,
+            ),
+        )
+        return ReadyMadeTemplatePage.model_validate(resp.json())
+
+    def get_template(self, slug: str) -> ReadyMadeTemplateDetail:
+        """Read one template by its slug, with its long-form copy and facets.
+
+        Args:
+            slug: The template's slug, as a search returns it.
+
+        Returns:
+            :class:`ReadyMadeTemplateDetail`.
+
+        Raises:
+            NotFoundError: If the catalogue holds no template by that slug.
+        """
+        resp = self._transport.request("GET", f"{READY_MADE_PATH}/{encode_id(slug)}")
+        return ReadyMadeTemplateDetail.model_validate(resp.json())
+
+
 class SudoMock:
     """Synchronous client for the SudoMock API.
 
@@ -1578,6 +1685,7 @@ class SudoMock:
         self.studio = _StudioResource(self._transport)
         self.packages = _PackagesResource(self._transport)
         self.webhook_endpoints = _WebhookEndpointsResource(self._transport)
+        self.ready_made_mockups = _ReadyMadeMockupsResource(self._transport)
 
         # Same resources, pinned to the endpoints the earlier accessors have
         # always called. Kept as their own objects so ``photo_mockups`` and

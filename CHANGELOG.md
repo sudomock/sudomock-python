@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-11-13
+
+### Added
+
+- `client.ready_made_mockups` reads SudoMock's free library of ready-made
+  mockups. `search()` answers with templates, each carrying its views and the
+  address to render from; `get_template(slug)` reads one with its long-form
+  copy. Hand a view's `source_url` to `client.photo_mockups.create()`.
+  `AsyncSudoMock` carries the same two methods.
+- `ReadyMadeMockup`, `ReadyMadeTemplate`, `ReadyMadeTemplateDetail` and
+  `ReadyMadeTemplatePage`.
+
 ## [0.20.0] - 2026-11-11
 
 ### Changed
