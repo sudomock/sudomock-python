@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://sudomock.com/Logo_Files/PNG/2x/logo-horizontal-light-icon-light-text@2x.png">
+    <img src="https://sudomock.com/Logo_Files/PNG/2x/logo-horizontal@2x.png" alt="SudoMock" width="320">
+  </picture>
+</p>
+
 # SudoMock Python SDK
 
 Official Python client for the [SudoMock](https://sudomock.com) Mockup Generator API.
